@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shilpi</title>
+
+  <style>
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: #111;
+      font-family: -apple-system, BlinkMacSystemFont,
+        "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    p {
+      margin: 0 0 16px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .frame {
+      border: 1px solid #eee;
+      border-radius: 12px;
+      padding: 20px 18px 18px;
+    }
+
+    .input-frame {
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 16px;
+    }
+
+    textarea {
+      width: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      font-size: 14px;
+      line-height: 1.45;
+      min-height: 72px;
+    }
+
+    textarea::placeholder {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #999;
+      white-space: pre-line;
+    }
+
+    .send-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .send-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .send-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: #fff;
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    .agent-response {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .signature {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #777;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="frame">
+    <p>
+      Vad vill du att jag tar ansvar för?<br>
+      Skriv nedan så påminner jag när det är dags.
+    </p>
+
+    <div class="input-frame">
+      <textarea
+        id="messageInput"
+        placeholder="påminna dig om att ringa mamma imorgon kl 14"
+      ></textarea>
+
+      <div class="send-row">
+        <div class="send-btn" id="sendBtn" aria-label="Skicka">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 19V5" />
+            <path d="M6 11l6-6 6 6" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agentens enda svar -->
+    <div id="agentResponse" class="agent-response hidden"></div>
+
+    <div class="signature">/ Shilpi</div>
+  </div>
+</div>
+
+<script>
+  const messageInput = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const agentResponse = document.getElementById("agentResponse");
+
+  async function sendMessage() {
+    const text = messageInput.value.trim();
+    if (!text) return;
+
+    messageInput.value = "";
+
+    // Rensa tidigare agentsvar
+    agentResponse.textContent = "";
+    agentResponse.classList.add("hidden");
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+
+      const data = await res.json();
+
+      if (data && data.reply) {
+        agentResponse.textContent = data.reply;
+        agentResponse.classList.remove("hidden");
+      }
+    } catch (_) {
+      // Tyst misslyckande är okej
+    }
+  }
+
+  messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  sendBtn.addEventListener("click", sendMessage);
+</script>
+
+</body>
+</html>
