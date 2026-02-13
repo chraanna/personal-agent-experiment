@@ -1,110 +1,234 @@
-from fastapi import FastAPI, BackgroundTasks
-from fastapi.responses import HTMLResponse
-from datetime import datetime, timedelta
-import time
-import uuid
-import re
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from pathlib import Path
+from typing import Dict
+from datetime import datetime, timedelta
+import threading
+import time
+import re
 
 app = FastAPI()
 
-# =========================================
-# In-memory store för åtaganden
-# =========================================
+# ==================================================
+# Global User Store
+# ==================================================
 
-commitments = {}
+users: Dict[str, dict] = {}
 
-# =========================================
-# Enkel tidstolkning
-# =========================================
+POLL_SECONDS = 30
 
-def parse_time_from_message(message: str):
-    now = datetime.utcnow()
+# ==================================================
+# Copy
+# ==================================================
 
-    match = re.search(r"imorgon kl (\d{1,2})", message.lower())
-    if match:
-        hour = int(match.group(1))
-        remind_at = (now + timedelta(days=1)).replace(
-            hour=hour, minute=0, second=0, microsecond=0
+ASK_NAME = "Vad heter du?"
+WELCOME_TEMPLATE = "Hej {name}. Vad vill du att jag tar ansvar för?"
+
+DEFAULT_REPLY = (
+    "Jag tar ansvar för sådant du inte ska behöva lägga tid på, "
+    "som att påminna dig om att tex ringa mamma, läsa läxor eller boka träningstid. "
+    "Jag hittar också luckor i din kalender och meddelar dig om det möten krockar.\n\n"
+    "Jag är redo för nästa uppgift."
+)
+
+FINISH_WORDS = ["klar", "fixat", "gjort", "klart"]
+ACK_WORDS = ["tack", "ok"]
+
+# ==================================================
+# Helpers
+# ==================================================
+
+def get_or_create_user(user_id: str, name: str | None = None):
+    if user_id not in users:
+        users[user_id] = {
+            "name": name or user_id,
+            "reminders": [],
+            "reminder_state": {
+                "waiting_for_time": False,
+                "task": None
+            }
+        }
+    return users[user_id]
+
+def clean_task(text: str):
+    text = text.lower()
+    text = re.sub(r"påminn mig att", "", text)
+    text = re.sub(r"påminn mig om att", "", text)
+    text = re.sub(r"påminn", "", text)
+    return text.strip()
+
+# ==================================================
+# Time parsing
+# ==================================================
+
+def parse_time_expression(text: str):
+    text = text.lower()
+    now = datetime.now()
+
+    again_match = re.search(r"om (\d+)\s*min", text)
+    if again_match:
+        minutes = int(again_match.group(1))
+        return now + timedelta(minutes=minutes)
+
+    hm_match = re.search(r"(\d{1,2}):(\d{2})", text)
+    hour = None
+    minute = 0
+
+    if hm_match:
+        hour = int(hm_match.group(1))
+        minute = int(hm_match.group(2))
+    else:
+        h_match = re.search(r"\b(\d{1,2})\b", text)
+        if h_match:
+            hour = int(h_match.group(1))
+
+    if hour is None:
+        return None
+
+    if "idag" in text:
+        due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if due <= now:
+            return None
+        return due
+
+    if "imorgon" in text or "i morgon" in text:
+        return (now + timedelta(days=1)).replace(
+            hour=hour, minute=minute, second=0, microsecond=0
         )
-        human_text = f"imorgon kl {hour}"
-        return remind_at, human_text
 
-    remind_at = now + timedelta(minutes=1)
-    return remind_at, "om en minut"
+    due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if due <= now:
+        return None
+    return due
 
-# =========================================
-# Skapa åtagande
-# =========================================
+# ==================================================
+# Reminder processor
+# ==================================================
 
-def create_commitment(text: str, remind_at: datetime):
-    commitment_id = str(uuid.uuid4())
-    commitments[commitment_id] = {
-        "id": commitment_id,
-        "text": text,
-        "remind_at": remind_at,
-        "status": "active"
-    }
-    return commitments[commitment_id]
+def process_reminders():
+    now = datetime.now()
 
-# =========================================
-# Livscykel
-# =========================================
+    for user in users.values():
+        for reminder in user["reminders"][:]:
 
-def run_commitment_lifecycle(commitment_id: str):
-    commitment = commitments.get(commitment_id)
-    if not commitment:
-        return
+            if reminder["status"] == "active" and now >= reminder["due_time"]:
+                reminder["status"] = "triggered_once"
+                reminder["trigger_time"] = now
+                reminder["events"].append(
+                    f"Nu är det dags att {reminder['task']}."
+                )
 
-    wait_seconds = (commitment["remind_at"] - datetime.utcnow()).total_seconds()
-    if wait_seconds > 0:
-        time.sleep(wait_seconds)
+            elif reminder["status"] == "triggered_once":
+                if now >= reminder["trigger_time"] + timedelta(minutes=15):
+                    reminder["status"] = "reminded_twice"
+                    reminder["second_trigger_time"] = now
+                    reminder["events"].append(
+                        f"Jag påminner igen. Det är dags att {reminder['task']}."
+                    )
 
-    if commitment["status"] != "active":
-        return
+            elif reminder["status"] == "reminded_twice":
+                if now >= reminder["second_trigger_time"] + timedelta(minutes=15):
+                    reminder["events"].append(
+                        "Uppgiften är inte längre aktiv."
+                    )
+                    user["reminders"].remove(reminder)
 
-    print(f"Nu är det dags att {commitment['text']}.")
-    commitment["status"] = "delivered"
+def reminder_loop():
+    while True:
+        process_reminders()
+        time.sleep(POLL_SECONDS)
 
-    time.sleep(30)
+@app.on_event("startup")
+def start_reminder_loop():
+    threading.Thread(target=reminder_loop, daemon=True).start()
 
-    if commitment["status"] != "delivered":
-        return
-
-    print(f"Jag påminner igen. Det är dags att {commitment['text']}.")
-    commitment["status"] = "reminded"
-
-    commitment["status"] = "inactive"
-    print("Uppgiften är inte längre aktiv.")
-
-# =========================================
+# ==================================================
 # Routes
-# =========================================
+# ==================================================
 
 @app.get("/", response_class=HTMLResponse)
-def serve_ui():
-    html_path = Path("index.html")
-    return html_path.read_text(encoding="utf-8")
+def ui():
+    return Path("index.html").read_text(encoding="utf-8")
 
 @app.post("/chat")
-async def chat(payload: dict, background_tasks: BackgroundTasks):
+async def chat(request: Request, response: Response):
+    payload = await request.json()
     message = payload.get("message", "").strip()
+
     if not message:
         return {"reply": ""}
 
-    remind_at, human_time = parse_time_from_message(message)
+    user_id = request.cookies.get("user_id")
 
-    commitment = create_commitment(
-        text=message,
-        remind_at=remind_at
-    )
+    if not user_id:
+        name = message.strip()
+        if len(name) < 2:
+            return {"reply": ASK_NAME}
 
-    background_tasks.add_task(
-        run_commitment_lifecycle,
-        commitment["id"]
-    )
+        user_id = name.lower()
+        get_or_create_user(user_id, name=name)
 
-    return {
-        "reply": f"Jag påminner dig {human_time}."
-    }
-    
+        response.set_cookie(
+            key="user_id",
+            value=user_id,
+            httponly=False
+        )
+
+        return {"reply": WELCOME_TEMPLATE.format(name=name)}
+
+    user = get_or_create_user(user_id)
+    lower = message.lower()
+
+    # ====== Avslut ======
+    if lower in FINISH_WORDS:
+        user["reminders"].clear()
+        return {"reply": "Uppgiften är inte längre aktiv."}
+
+    # ====== Bekräftelse ======
+    if lower in ACK_WORDS:
+        return {"reply": "Jag finns här för sådant du inte ska behöva lägga tid på."}
+
+    # ====== Väntar på tid ======
+    if user["reminder_state"]["waiting_for_time"]:
+        due = parse_time_expression(lower)
+        if not due:
+            return {"reply": "Tid och dag?"}
+
+        task = user["reminder_state"]["task"]
+        user["reminder_state"]["waiting_for_time"] = False
+
+        user["reminders"].append({
+            "task": task,
+            "due_time": due,
+            "status": "active",
+            "trigger_time": None,
+            "second_trigger_time": None,
+            "events": []
+        })
+
+        return {
+            "reply": f"Jag påminner dig att {task} kl {due.strftime('%H:%M')}."
+        }
+
+    # ====== Ny uppgift ======
+    if "påminn" in lower or len(lower.split()) <= 5:
+        user["reminder_state"]["waiting_for_time"] = True
+        user["reminder_state"]["task"] = clean_task(lower)
+        return {"reply": "Tid och dag?"}
+
+    return {"reply": DEFAULT_REPLY}
+
+@app.get("/events")
+async def get_events(request: Request):
+    user_id = request.cookies.get("user_id")
+    if not user_id:
+        return JSONResponse([])
+
+    user = get_or_create_user(user_id)
+
+    output = []
+    for reminder in user["reminders"]:
+        output.extend(reminder["events"])
+        reminder["events"].clear()
+
+    return JSONResponse(output)

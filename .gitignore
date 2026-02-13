@@ -1,2 +1,13 @@
+# Secrets (ska aldrig pushas)
+client_secret.json
+token.json
 .env
+.env.*
+*.swp
+
+# Python
 __pycache__/
+*.pyc
+
+# Local test files
+watcher_test.py

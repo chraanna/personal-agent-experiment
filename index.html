@@ -54,6 +54,7 @@
       font-size: 14px;
       line-height: 1.45;
       min-height: 72px;
+      font-family: inherit;
     }
 
     textarea::placeholder {
@@ -88,20 +89,44 @@
       fill: none;
     }
 
-    .agent-response {
-      margin-top: 14px;
+    /* ===== Logg ===== */
+
+    #log {
+      margin-top: 16px;
+      white-space: pre-wrap;
       font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .entry {
+      margin: 0;
+    }
+
+    .name {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 2px;
+    }
+
+    .log-owner {
+      margin-bottom: 10px;
+    }
+
+    .log-agent {
+      margin-top: 14px;
+      margin-bottom: 10px;
       color: #555;
+    }
+
+    .log-events {
+      margin-top: 14px;
+      color: #444;
     }
 
     .signature {
       margin-top: 12px;
       font-size: 13px;
       color: #777;
-    }
-
-    .hidden {
-      display: none;
     }
   </style>
 </head>
@@ -130,27 +155,47 @@
       </div>
     </div>
 
-    <!-- Agentens enda svar -->
-    <div id="agentResponse" class="agent-response hidden"></div>
+    <!-- Gemensam logg -->
+    <div id="log"></div>
 
     <div class="signature">/ Shilpi</div>
   </div>
 </div>
 
 <script>
+  const OWNER_NAME = "Du";
+  const AGENT_NAME = "Shilpi";
+
   const messageInput = document.getElementById("messageInput");
   const sendBtn = document.getElementById("sendBtn");
-  const agentResponse = document.getElementById("agentResponse");
+  const log = document.getElementById("log");
+
+  function appendBlock(name, text, className) {
+    const wrapper = document.createElement("div");
+    wrapper.className = className;
+
+    if (name) {
+      const nameDiv = document.createElement("div");
+      nameDiv.className = "name";
+      nameDiv.textContent = name;
+      wrapper.appendChild(nameDiv);
+    }
+
+    const textDiv = document.createElement("div");
+    textDiv.className = "entry";
+    textDiv.textContent = text;
+    wrapper.appendChild(textDiv);
+
+    log.appendChild(wrapper);
+    log.scrollTop = log.scrollHeight;
+  }
 
   async function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
 
+    appendBlock(OWNER_NAME, text, "log-owner");
     messageInput.value = "";
-
-    // Rensa tidigare agentsvar
-    agentResponse.textContent = "";
-    agentResponse.classList.add("hidden");
 
     try {
       const res = await fetch("/chat", {
@@ -162,12 +207,21 @@
       const data = await res.json();
 
       if (data && data.reply) {
-        agentResponse.textContent = data.reply;
-        agentResponse.classList.remove("hidden");
+        appendBlock(AGENT_NAME, data.reply, "log-agent");
       }
     } catch (_) {
       // Tyst misslyckande är okej
     }
+  }
+
+  async function pollEvents() {
+    try {
+      const res = await fetch("/events");
+      const events = await res.json();
+      if (events.length) {
+        appendBlock(null, events.join("\n"), "log-events");
+      }
+    } catch (_) {}
   }
 
   messageInput.addEventListener("keydown", (e) => {
@@ -178,6 +232,8 @@
   });
 
   sendBtn.addEventListener("click", sendMessage);
+
+  setInterval(pollEvents, 2000);
 </script>
 
 </body>
