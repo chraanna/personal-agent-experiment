@@ -1,234 +1,183 @@
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse
-from pathlib import Path
-from typing import Dict
-from datetime import datetime, timedelta
-import threading
-import time
-import re
+import os
+import requests
+from datetime import datetime
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse, JSONResponse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
-# ==================================================
-# Global User Store
-# ==================================================
+# =========================
+# ENV
+# =========================
 
-users: Dict[str, dict] = {}
+CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID")
+CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
+TENANT_ID = os.getenv("MICROSOFT_TENANT_ID")
+REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI")
 
-POLL_SECONDS = 30
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+AUTHORIZE_URL = f"{AUTHORITY}/oauth2/v2.0/authorize"
+TOKEN_URL = f"{AUTHORITY}/oauth2/v2.0/token"
 
-# ==================================================
-# Copy
-# ==================================================
+SCOPES = [
+    "https://graph.microsoft.com/Calendars.Read",
+    "offline_access"
+]
 
-ASK_NAME = "Vad heter du?"
-WELCOME_TEMPLATE = "Hej {name}. Vad vill du att jag tar ansvar för?"
+# Dev only – in memory
+user_tokens = {}
 
-DEFAULT_REPLY = (
-    "Jag tar ansvar för sådant du inte ska behöva lägga tid på, "
-    "som att påminna dig om att tex ringa mamma, läsa läxor eller boka träningstid. "
-    "Jag hittar också luckor i din kalender och meddelar dig om det möten krockar.\n\n"
-    "Jag är redo för nästa uppgift."
-)
+# =========================
+# AUTH
+# =========================
 
-FINISH_WORDS = ["klar", "fixat", "gjort", "klart"]
-ACK_WORDS = ["tack", "ok"]
+@app.get("/auth/login")
+def login():
+    scope_str = " ".join(SCOPES)
 
-# ==================================================
-# Helpers
-# ==================================================
+    url = (
+        f"{AUTHORIZE_URL}"
+        f"?client_id={CLIENT_ID}"
+        f"&response_type=code"
+        f"&redirect_uri={REDIRECT_URI}"
+        f"&response_mode=query"
+        f"&scope={scope_str}"
+        f"&state=shilpi"
+    )
 
-def get_or_create_user(user_id: str, name: str | None = None):
-    if user_id not in users:
-        users[user_id] = {
-            "name": name or user_id,
-            "reminders": [],
-            "reminder_state": {
-                "waiting_for_time": False,
-                "task": None
-            }
-        }
-    return users[user_id]
+    # IMPORTANT:
+    # Return the login URL instead of redirecting (Codespaces proxy workaround)
+    return {"login_url": url}
 
-def clean_task(text: str):
-    text = text.lower()
-    text = re.sub(r"påminn mig att", "", text)
-    text = re.sub(r"påminn mig om att", "", text)
-    text = re.sub(r"påminn", "", text)
-    return text.strip()
 
-# ==================================================
-# Time parsing
-# ==================================================
+@app.get("/auth/callback")
+def callback(request: Request):
+    code = request.query_params.get("code")
 
-def parse_time_expression(text: str):
-    text = text.lower()
-    now = datetime.now()
+    if not code:
+        return JSONResponse({"error": "No code returned"})
 
-    again_match = re.search(r"om (\d+)\s*min", text)
-    if again_match:
-        minutes = int(again_match.group(1))
-        return now + timedelta(minutes=minutes)
+    token_data = {
+        "client_id": CLIENT_ID,
+        "scope": " ".join(SCOPES),
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code",
+        "client_secret": CLIENT_SECRET,
+    }
 
-    hm_match = re.search(r"(\d{1,2}):(\d{2})", text)
-    hour = None
-    minute = 0
+    response = requests.post(TOKEN_URL, data=token_data)
 
-    if hm_match:
-        hour = int(hm_match.group(1))
-        minute = int(hm_match.group(2))
-    else:
-        h_match = re.search(r"\b(\d{1,2})\b", text)
-        if h_match:
-            hour = int(h_match.group(1))
-
-    if hour is None:
-        return None
-
-    if "idag" in text:
-        due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if due <= now:
-            return None
-        return due
-
-    if "imorgon" in text or "i morgon" in text:
-        return (now + timedelta(days=1)).replace(
-            hour=hour, minute=minute, second=0, microsecond=0
-        )
-
-    due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if due <= now:
-        return None
-    return due
-
-# ==================================================
-# Reminder processor
-# ==================================================
-
-def process_reminders():
-    now = datetime.now()
-
-    for user in users.values():
-        for reminder in user["reminders"][:]:
-
-            if reminder["status"] == "active" and now >= reminder["due_time"]:
-                reminder["status"] = "triggered_once"
-                reminder["trigger_time"] = now
-                reminder["events"].append(
-                    f"Nu är det dags att {reminder['task']}."
-                )
-
-            elif reminder["status"] == "triggered_once":
-                if now >= reminder["trigger_time"] + timedelta(minutes=15):
-                    reminder["status"] = "reminded_twice"
-                    reminder["second_trigger_time"] = now
-                    reminder["events"].append(
-                        f"Jag påminner igen. Det är dags att {reminder['task']}."
-                    )
-
-            elif reminder["status"] == "reminded_twice":
-                if now >= reminder["second_trigger_time"] + timedelta(minutes=15):
-                    reminder["events"].append(
-                        "Uppgiften är inte längre aktiv."
-                    )
-                    user["reminders"].remove(reminder)
-
-def reminder_loop():
-    while True:
-        process_reminders()
-        time.sleep(POLL_SECONDS)
-
-@app.on_event("startup")
-def start_reminder_loop():
-    threading.Thread(target=reminder_loop, daemon=True).start()
-
-# ==================================================
-# Routes
-# ==================================================
-
-@app.get("/", response_class=HTMLResponse)
-def ui():
-    return Path("index.html").read_text(encoding="utf-8")
-
-@app.post("/chat")
-async def chat(request: Request, response: Response):
-    payload = await request.json()
-    message = payload.get("message", "").strip()
-
-    if not message:
-        return {"reply": ""}
-
-    user_id = request.cookies.get("user_id")
-
-    if not user_id:
-        name = message.strip()
-        if len(name) < 2:
-            return {"reply": ASK_NAME}
-
-        user_id = name.lower()
-        get_or_create_user(user_id, name=name)
-
-        response.set_cookie(
-            key="user_id",
-            value=user_id,
-            httponly=False
-        )
-
-        return {"reply": WELCOME_TEMPLATE.format(name=name)}
-
-    user = get_or_create_user(user_id)
-    lower = message.lower()
-
-    # ====== Avslut ======
-    if lower in FINISH_WORDS:
-        user["reminders"].clear()
-        return {"reply": "Uppgiften är inte längre aktiv."}
-
-    # ====== Bekräftelse ======
-    if lower in ACK_WORDS:
-        return {"reply": "Jag finns här för sådant du inte ska behöva lägga tid på."}
-
-    # ====== Väntar på tid ======
-    if user["reminder_state"]["waiting_for_time"]:
-        due = parse_time_expression(lower)
-        if not due:
-            return {"reply": "Tid och dag?"}
-
-        task = user["reminder_state"]["task"]
-        user["reminder_state"]["waiting_for_time"] = False
-
-        user["reminders"].append({
-            "task": task,
-            "due_time": due,
-            "status": "active",
-            "trigger_time": None,
-            "second_trigger_time": None,
-            "events": []
+    if response.status_code != 200:
+        return JSONResponse({
+            "error": "Token exchange failed",
+            "details": response.text
         })
 
+    token_json = response.json()
+    access_token = token_json.get("access_token")
+
+    if not access_token:
+        return JSONResponse({"error": "No access token received"})
+
+    user_tokens["shilpi"] = access_token
+
+    return {"status": "authenticated"}
+
+
+# =========================
+# CALENDAR LOGIC
+# =========================
+
+def get_calendar_events():
+    access_token = user_tokens.get("shilpi")
+
+    if not access_token:
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    graph_url = (
+        "https://graph.microsoft.com/v1.0/me/events"
+        "?$orderby=start/dateTime"
+        "&$top=20"
+    )
+
+    response = requests.get(graph_url, headers=headers)
+
+    if response.status_code != 200:
+        return None
+
+    return response.json().get("value", [])
+
+
+def find_free_slots(events):
+    if not events:
+        return ["Hela dagen är fri"]
+
+    parsed_events = []
+
+    for event in events:
+        start = datetime.fromisoformat(event["start"]["dateTime"])
+        end = datetime.fromisoformat(event["end"]["dateTime"])
+        parsed_events.append((start, end))
+
+    parsed_events.sort(key=lambda x: x[0])
+
+    free_slots = []
+
+    for i in range(len(parsed_events) - 1):
+        current_end = parsed_events[i][1]
+        next_start = parsed_events[i + 1][0]
+
+        diff_minutes = (next_start - current_end).total_seconds() / 60
+
+        if diff_minutes >= 30:
+            free_slots.append(
+                f"{current_end.strftime('%H:%M')} – {next_start.strftime('%H:%M')}"
+            )
+
+    if not free_slots:
+        return ["Inga större luckor"]
+
+    return free_slots
+
+
+# =========================
+# SHILPI CALENDAR
+# =========================
+
+@app.get("/shilpi/calendar")
+def shilpi_calendar():
+
+    events = get_calendar_events()
+
+    if events is None:
         return {
-            "reply": f"Jag påminner dig att {task} kl {due.strftime('%H:%M')}."
+            "message": "Du är inte inloggad.",
+            "login_url": "/auth/login"
         }
 
-    # ====== Ny uppgift ======
-    if "påminn" in lower or len(lower.split()) <= 5:
-        user["reminder_state"]["waiting_for_time"] = True
-        user["reminder_state"]["task"] = clean_task(lower)
-        return {"reply": "Tid och dag?"}
+    free_slots = find_free_slots(events)
 
-    return {"reply": DEFAULT_REPLY}
+    return {
+        "free_slots": free_slots
+    }
 
-@app.get("/events")
-async def get_events(request: Request):
-    user_id = request.cookies.get("user_id")
-    if not user_id:
-        return JSONResponse([])
 
-    user = get_or_create_user(user_id)
+# =========================
+# ROOT
+# =========================
 
-    output = []
-    for reminder in user["reminders"]:
-        output.extend(reminder["events"])
-        reminder["events"].clear()
-
-    return JSONResponse(output)
+@app.get("/")
+def root():
+    return {
+        "status": "Shilpi is running",
+        "login": "/auth/login",
+        "check_calendar": "/shilpi/calendar"
+    }

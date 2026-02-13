@@ -5,6 +5,8 @@ token.json
 .env.*
 *.swp
 
+tokens/
+
 # Python
 __pycache__/
 *.pyc
