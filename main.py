@@ -105,6 +105,8 @@ def get_user_id(request: Request) -> str:
 WEEKDAYS = {
     "måndag": 0, "tisdag": 1, "onsdag": 2,
     "torsdag": 3, "fredag": 4, "lördag": 5, "söndag": 6,
+    "mån": 0, "tis": 1, "ons": 2,
+    "tors": 3, "fre": 4, "lör": 5, "sön": 6,
 }
 
 WEEKDAY_NAMES = [
@@ -148,8 +150,15 @@ def clean_task(text: str):
 # Time parsing
 # ==================================================
 
-def parse_time_expression(text: str):
+def normalize_input(text: str) -> str:
+    """Normalize common Swedish variations before parsing."""
     text = text.lower()
+    text = re.sub(r"\bklockan\b", "kl", text)
+    return text
+
+
+def parse_time_expression(text: str):
+    text = normalize_input(text)
     now = datetime.now()
 
     again_match = re.search(r"om (\d+)\s*min", text)
@@ -214,18 +223,21 @@ def has_day_reference(text: str) -> bool:
 
 def parse_multiple_days(text: str) -> list:
     """Parse multiple day references from text. Returns list of dates."""
-    text = text.lower()
+    text = normalize_input(text)
     now = datetime.now()
     today = now.date()
     dates = []
+    found_weekdays = set()
 
     if "idag" in text:
         dates.append(today)
     if "imorgon" in text or "i morgon" in text:
         dates.append(today + timedelta(days=1))
 
-    for day_name, weekday_target in WEEKDAYS.items():
-        if day_name in text:
+    # Sort by length descending so "onsdag" matches before "ons"
+    for day_name, weekday_target in sorted(WEEKDAYS.items(), key=lambda x: -len(x[0])):
+        if day_name in text and weekday_target not in found_weekdays:
+            found_weekdays.add(weekday_target)
             days_ahead = weekday_target - now.weekday()
             if "nästa" in text:
                 days_ahead += 7
@@ -244,7 +256,7 @@ def has_multiple_days(text: str) -> bool:
 
 def parse_time_only(text: str):
     """Extract just the hour and minute from text, ignoring day references."""
-    text = text.lower()
+    text = normalize_input(text)
     hm_match = re.search(r"(\d{1,2}):(\d{2})", text)
     if hm_match:
         return int(hm_match.group(1)), int(hm_match.group(2))
