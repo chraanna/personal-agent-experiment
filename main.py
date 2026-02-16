@@ -129,10 +129,30 @@ def is_calendar_question(text: str):
 
 
 def clean_task(text: str):
-    text = text.lower()
+    text = normalize_input(text)
+    # Remove reminder phrases
     text = re.sub(r"påminn mig att", "", text)
     text = re.sub(r"påminn mig om att", "", text)
+    text = re.sub(r"påminn mig också att", "", text)
     text = re.sub(r"påminn", "", text)
+    # Remove time references
+    text = re.sub(r"\bkl\s*\d{1,2}(:\d{2})?\b", "", text)
+    text = re.sub(r"\b\d{1,2}:\d{2}\b", "", text)
+    text = re.sub(r"\bom\s+\d+\s*min\w*\b", "", text)
+    # Remove day references
+    text = re.sub(r"\bidag\b", "", text)
+    text = re.sub(r"\bimorgon\b", "", text)
+    text = re.sub(r"\bi morgon\b", "", text)
+    text = re.sub(r"\bnästa\b", "", text)
+    for day_name in WEEKDAYS:
+        text = re.sub(rf"\b{day_name}\b", "", text)
+    # Remove "på", "och", "samt" left over
+    text = re.sub(r"\bpå\b", "", text)
+    text = re.sub(r"\boch\b", "", text)
+    text = re.sub(r"\bsamt\b", "", text)
+    text = re.sub(r"\bokså\b", "", text)
+    # Clean up whitespace and trailing commas
+    text = re.sub(r"[,\s]+", " ", text)
     return text.strip()
 
 # ==================================================
@@ -145,6 +165,8 @@ def normalize_input(text: str) -> str:
     text = re.sub(r"\bklockan\b", "kl", text)
     # 22.01 → 22:01 (dot as time separator)
     text = re.sub(r"(\d{1,2})\.(\d{2})\b", r"\1:\2", text)
+    # ikväll → idag
+    text = re.sub(r"\bikväll\b", "idag", text)
     # Common misspellings of "imorgon"
     text = re.sub(r"\bimorogn\b", "imorgon", text)
     text = re.sub(r"\bimorrgon\b", "imorgon", text)
