@@ -250,9 +250,29 @@ def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> st
             if not e["all_day"] and e["response"] != "declined"
         ]
 
+        # Check if the user asked about a specific day
+        today = datetime.now(LOCAL_TZ)
+        target_days = []
+
+        if "idag" in lower:
+            target_days = [today.date()]
+        elif "imorgon" in lower or "i morgon" in lower:
+            target_days = [(today + timedelta(days=1)).date()]
+        else:
+            for day_name, weekday_num in WEEKDAYS.items():
+                if day_name in lower:
+                    days_ahead = weekday_num - today.weekday()
+                    if days_ahead < 0:
+                        days_ahead += 7
+                    target_days = [(today + timedelta(days=days_ahead)).date()]
+                    break
+
+        if not target_days:
+            # No specific day → show whole week
+            target_days = [(today + timedelta(days=d)).date() for d in range(DAYS_AHEAD)]
+
         suggestions = []
-        for day_offset in range(DAYS_AHEAD):
-            day = (datetime.now(LOCAL_TZ) + timedelta(days=day_offset)).date()
+        for day in target_days:
             day_busy = [(s, e) for s, e in busy_blocks if s.date() == day]
             slots = find_slots_for_day(day, day_busy)
 
@@ -261,12 +281,10 @@ def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> st
                 suggestions.append(
                     f"{weekday} {start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
                 )
-                if len(suggestions) == 5:
-                    break
-            if len(suggestions) == 5:
-                break
 
         if not suggestions:
+            if len(target_days) == 1:
+                return f"Inga lediga tider på {WEEKDAY_NAMES[target_days[0].weekday()]}."
             return "Jag ser inga lediga tider den närmaste veckan."
 
         lines = ["Här är lediga tider:"]
