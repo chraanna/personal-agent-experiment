@@ -389,6 +389,8 @@ hålla koll på om något ändras i din kalender"
 
     onboarding.classList.add("hidden");
     mainView.classList.remove("hidden");
+
+    requestNotificationPermission();
   });
 
   // --- Chat ---
@@ -435,12 +437,79 @@ hålla koll på om något ändras i din kalender"
     } catch (_) {}
   }
 
+  // --- Notifications ---
+
+  let notificationPermission = Notification.permission;
+  const originalTitle = document.title;
+  let titleBlinkInterval = null;
+
+  async function requestNotificationPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+      const result = await Notification.requestPermission();
+      notificationPermission = result;
+    }
+  }
+
+  function sendBrowserNotification(text) {
+    if (notificationPermission === "granted") {
+      const n = new Notification(AGENT_NAME, {
+        body: text,
+        icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔔</text></svg>"
+      });
+      setTimeout(() => n.close(), 8000);
+    }
+  }
+
+  function playNotificationSound() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 680;
+    osc.type = "sine";
+    gain.gain.value = 0.15;
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.stop(ctx.currentTime + 0.4);
+  }
+
+  function blinkTitle(text) {
+    if (titleBlinkInterval) return;
+    let show = true;
+    titleBlinkInterval = setInterval(() => {
+      document.title = show ? "● " + text : originalTitle;
+      show = !show;
+    }, 1000);
+
+    // Stop blinking when user focuses the tab
+    window.addEventListener("focus", stopBlinkTitle, { once: true });
+  }
+
+  function stopBlinkTitle() {
+    if (titleBlinkInterval) {
+      clearInterval(titleBlinkInterval);
+      titleBlinkInterval = null;
+      document.title = originalTitle;
+    }
+  }
+
+  function notify(text) {
+    sendBrowserNotification(text);
+    playNotificationSound();
+    if (document.hidden) {
+      blinkTitle(AGENT_NAME);
+    }
+  }
+
   async function pollEvents() {
     try {
       const res = await fetch("/events");
       const events = await res.json();
       if (events.length) {
-        appendBlock(null, events.join("\n"), "log-events");
+        const text = events.join("\n");
+        appendBlock(null, text, "log-events");
+        notify(text);
       }
     } catch (_) {}
   }
