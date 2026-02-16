@@ -143,6 +143,8 @@ def normalize_input(text: str) -> str:
     """Normalize common Swedish variations before parsing."""
     text = text.lower()
     text = re.sub(r"\bklockan\b", "kl", text)
+    # 22.01 → 22:01 (dot as time separator)
+    text = re.sub(r"(\d{1,2})\.(\d{2})\b", r"\1:\2", text)
     # Common misspellings of "imorgon"
     text = re.sub(r"\bimorogn\b", "imorgon", text)
     text = re.sub(r"\bimorrgon\b", "imorgon", text)
@@ -915,6 +917,14 @@ async def chat(payload: dict, request: Request):
             })
             state["waiting_for_time"] = False
             return {"reply": format_due_time(task, due), "user_id": user_id}
+
+        # Check if only time was given → switch to asking for day
+        hour, minute = parse_time_only(lower)
+        if hour is not None:
+            state["waiting_for"] = "day"
+            state["pending_hour"] = hour
+            state["pending_minute"] = minute
+            return {"reply": "Vilken dag?", "user_id": user_id}
 
         return {"reply": "Tid och dag?", "user_id": user_id}
 
