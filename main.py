@@ -942,7 +942,7 @@ async def chat(payload: dict, request: Request):
                 state["waiting_for"] = "multi_day_times"
                 state["pending_days"] = days
                 state["collected"] = []
-                return {"reply": "Skriv tid och dag i separata meddelanden.", "user_id": user_id}
+                return {"reply": "Jag kan ta flera påminnelser, men behöver tydligare uppdelning.\nSkriv dag och tid för varje tillfälle.", "user_id": user_id}
             else:
                 # Single day, no time → ask for time
                 state["waiting_for_time"] = True
