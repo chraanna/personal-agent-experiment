@@ -211,6 +211,94 @@ def has_day_reference(text: str) -> bool:
             return True
     return False
 
+
+def parse_multiple_days(text: str) -> list:
+    """Parse multiple day references from text. Returns list of dates."""
+    text = text.lower()
+    now = datetime.now()
+    today = now.date()
+    dates = []
+
+    if "idag" in text:
+        dates.append(today)
+    if "imorgon" in text or "i morgon" in text:
+        dates.append(today + timedelta(days=1))
+
+    for day_name, weekday_target in WEEKDAYS.items():
+        if day_name in text:
+            days_ahead = weekday_target - now.weekday()
+            if "nästa" in text:
+                days_ahead += 7
+            if days_ahead < 0:
+                days_ahead += 7
+            dates.append(today + timedelta(days=days_ahead))
+
+    dates.sort()
+    return dates
+
+
+def has_multiple_days(text: str) -> bool:
+    """Check if text references more than one day."""
+    return len(parse_multiple_days(text)) > 1
+
+
+def parse_time_only(text: str):
+    """Extract just the hour and minute from text, ignoring day references."""
+    text = text.lower()
+    hm_match = re.search(r"(\d{1,2}):(\d{2})", text)
+    if hm_match:
+        return int(hm_match.group(1)), int(hm_match.group(2))
+    h_match = re.search(r"\bkl\s*(\d{1,2})\b", text)
+    if h_match:
+        return int(h_match.group(1)), 0
+    h_match = re.search(r"\b(\d{1,2})\b", text)
+    if h_match:
+        val = int(h_match.group(1))
+        if 6 <= val <= 23:
+            return val, 0
+    return None, None
+
+
+def format_day_label(d, today) -> str:
+    """Format a date as weekday name (this week) or d/m (further out)."""
+    days_diff = (d - today).days
+    if d == today:
+        return "idag"
+    if d == today + timedelta(days=1):
+        return "imorgon"
+    if days_diff <= 7:
+        return WEEKDAY_NAMES[d.weekday()]
+    return f"den {d.day}/{d.month}"
+
+
+def format_multiple_days(dates: list, hour: int, minute: int) -> str:
+    """Format a confirmation for multiple reminder days."""
+    today = datetime.now().date()
+    labels = [format_day_label(d, today) for d in dates]
+    time_str = f"kl {hour:02d}:{minute:02d}"
+
+    if len(labels) == 1:
+        prefix = labels[0]
+        # Add "på" for weekday names
+        if prefix not in ("idag", "imorgon") and not prefix.startswith("den"):
+            prefix = f"på {prefix}"
+        return f"Jag påminner dig {prefix} {time_str}."
+
+    # Join with commas and "och"
+    formatted = []
+    for label in labels:
+        if label not in ("idag", "imorgon") and not label.startswith("den"):
+            formatted.append(f"på {label}")
+        else:
+            formatted.append(label)
+
+    if len(formatted) == 2:
+        day_str = f"{formatted[0]} och {formatted[1]}"
+    else:
+        day_str = ", ".join(formatted[:-1]) + f" och {formatted[-1]}"
+
+    return f"Jag påminner dig {day_str} {time_str}."
+
 # ==================================================
 # Reminder processor (per-user)
 # ==================================================
@@ -674,37 +762,62 @@ async def chat(payload: dict, request: Request):
                 reminders[0]["status"] = "active"
                 return {"reply": "Jag påminner dig igen.", "user_id": user_id}
 
-    # waiting for time
+    # waiting for time/day
     if state["waiting_for_time"]:
-        # If we had partial time from before, combine with the day answer
-        partial = state.get("partial_time", "")
-        if partial:
-            combined = f"{partial} {lower}"
-            due = parse_time_expression(combined)
-            state.pop("partial_time", None)
-        else:
-            due = parse_time_expression(lower)
-
-        if not due:
-            if partial:
-                return {"reply": "Vilken dag?", "user_id": user_id}
-            return {"reply": "Tid och dag?", "user_id": user_id}
-
+        waiting_for = state.get("waiting_for", "time_and_day")
         task = state["task"]
-        state["waiting_for_time"] = False
 
-        reminders.append({
-            "task": task,
-            "due_time": due,
-            "status": "active",
-            "trigger_time": None,
-            "second_trigger_time": None,
-        })
+        if waiting_for == "day":
+            # We have time, need day(s)
+            hour, minute = state.get("pending_hour", 0), state.get("pending_minute", 0)
+            days = parse_multiple_days(lower)
+            if not days:
+                # Try single day via parse_time_expression with combined text
+                combined = f"{lower} kl {hour}:{minute:02d}"
+                due = parse_time_expression(combined)
+                if due:
+                    days = [due.date()]
+                else:
+                    return {"reply": "Vilken dag?", "user_id": user_id}
 
-        return {
-            "reply": f"Jag påminner dig {format_due_time(due)}.",
-            "user_id": user_id,
-        }
+            for d in days:
+                due = datetime(d.year, d.month, d.day, hour, minute)
+                reminders.append({
+                    "task": task, "due_time": due, "status": "active",
+                    "trigger_time": None, "second_trigger_time": None,
+                })
+
+            state["waiting_for_time"] = False
+            return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
+
+        if waiting_for == "time":
+            # We have day(s), need time
+            hour, minute = parse_time_only(lower)
+            if hour is None:
+                return {"reply": "Vilken tid?", "user_id": user_id}
+
+            days = state.get("pending_days", [])
+            for d in days:
+                due = datetime(d.year, d.month, d.day, hour, minute)
+                reminders.append({
+                    "task": task, "due_time": due, "status": "active",
+                    "trigger_time": None, "second_trigger_time": None,
+                })
+
+            state["waiting_for_time"] = False
+            return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
+
+        # waiting for both time and day
+        due = parse_time_expression(lower)
+        if due:
+            reminders.append({
+                "task": task, "due_time": due, "status": "active",
+                "trigger_time": None, "second_trigger_time": None,
+            })
+            state["waiting_for_time"] = False
+            return {"reply": f"Jag påminner dig {format_due_time(due)}.", "user_id": user_id}
+
+        return {"reply": "Tid och dag?", "user_id": user_id}
 
     # calendar question
     if is_calendar_question(lower):
@@ -721,29 +834,49 @@ async def chat(payload: dict, request: Request):
     # new task
     if "påminn" in lower or is_task_like(lower):
         task = clean_task(lower)
-        due = parse_time_expression(lower)
+        days = parse_multiple_days(lower)
+        hour, minute = parse_time_only(lower)
 
+        if days and hour is not None:
+            # Everything provided → confirm directly
+            for d in days:
+                due = datetime(d.year, d.month, d.day, hour, minute)
+                reminders.append({
+                    "task": task, "due_time": due, "status": "active",
+                    "trigger_time": None, "second_trigger_time": None,
+                })
+            return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
+
+        if days and hour is None:
+            # Days but no time → ask for time
+            state["waiting_for_time"] = True
+            state["task"] = task
+            state["waiting_for"] = "time"
+            state["pending_days"] = days
+            return {"reply": "Vilken tid?", "user_id": user_id}
+
+        if not days and hour is not None:
+            # Time but no day → ask for day
+            state["waiting_for_time"] = True
+            state["task"] = task
+            state["waiting_for"] = "day"
+            state["pending_hour"] = hour
+            state["pending_minute"] = minute
+            return {"reply": "Vilken dag?", "user_id": user_id}
+
+        # Nothing → ask for both
+        # But first try parse_time_expression for "om 5 min" style
+        due = parse_time_expression(lower)
         if due:
-            # Time + day found → confirm directly
             reminders.append({
-                "task": task,
-                "due_time": due,
-                "status": "active",
-                "trigger_time": None,
-                "second_trigger_time": None,
+                "task": task, "due_time": due, "status": "active",
+                "trigger_time": None, "second_trigger_time": None,
             })
             return {"reply": f"Jag påminner dig {format_due_time(due)}.", "user_id": user_id}
 
-        # Check if there's a time but no day (e.g. "kl 14" without "imorgon")
-        has_time = re.search(r"(\d{1,2}):(\d{2})", lower) or re.search(r"\bkl\s*\d{1,2}\b", lower)
-        if has_time and not has_day_reference(lower):
-            state["waiting_for_time"] = True
-            state["task"] = task
-            state["partial_time"] = lower
-            return {"reply": "Vilken dag?", "user_id": user_id}
-
         state["waiting_for_time"] = True
         state["task"] = task
+        state["waiting_for"] = "time_and_day"
         return {"reply": "Tid och dag?", "user_id": user_id}
 
     return {"reply": DEFAULT_REPLY, "user_id": user_id}
