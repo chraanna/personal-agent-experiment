@@ -154,6 +154,10 @@ def normalize_input(text: str) -> str:
     """Normalize common Swedish variations before parsing."""
     text = text.lower()
     text = re.sub(r"\bklockan\b", "kl", text)
+    # Common misspellings of "imorgon"
+    text = re.sub(r"\bimorogn\b", "imorgon", text)
+    text = re.sub(r"\bimorrgon\b", "imorgon", text)
+    text = re.sub(r"\bimorgn\b", "imorgon", text)
     return text
 
 
@@ -210,7 +214,7 @@ def parse_time_expression(text: str):
 
 def has_day_reference(text: str) -> bool:
     """Check if text contains a day reference (idag, imorgon, weekday, om X min)."""
-    text = text.lower()
+    text = normalize_input(text)
     if re.search(r"om \d+\s*min", text):
         return True
     if "idag" in text or "imorgon" in text or "i morgon" in text:
@@ -310,6 +314,26 @@ def format_multiple_days(dates: list, hour: int, minute: int) -> str:
         day_str = ", ".join(formatted[:-1]) + f" och {formatted[-1]}"
 
     return f"Jag påminner dig {day_str} {time_str}."
+
+
+def format_collected_reminders(collected: list) -> str:
+    """Format confirmation for collected reminders with different times per day.
+    collected = [{"date": date, "hour": int, "minute": int}, ...]
+    """
+    today = datetime.now().date()
+    parts = []
+    for item in collected:
+        d = item["date"]
+        label = format_day_label(d, today)
+        if label not in ("idag", "imorgon") and not label.startswith("den"):
+            label = f"på {label}"
+        parts.append(f"{label} kl {item['hour']:02d}:{item['minute']:02d}")
+
+    if len(parts) == 1:
+        return f"Jag påminner dig {parts[0]}."
+    if len(parts) == 2:
+        return f"Jag påminner dig {parts[0]} och {parts[1]}."
+    return f"Jag påminner dig {', '.join(parts[:-1])} och {parts[-1]}."
 
 # ==================================================
 # Reminder processor (per-user)
@@ -765,6 +789,32 @@ async def chat(payload: dict, request: Request):
             return {"reply": "Uppgiften är inte längre aktiv.", "user_id": user_id}
         return {"reply": DEFAULT_REPLY, "user_id": user_id}
 
+    # "också" — add to existing reminders for same task
+    if "också" in lower and ("påminn" in lower) and reminders:
+        task = clean_task(lower)
+        days = parse_multiple_days(lower)
+        hour, minute = parse_time_only(lower)
+
+        if days and hour is not None:
+            for d in days:
+                due = datetime(d.year, d.month, d.day, hour, minute)
+                reminders.append({
+                    "task": task, "due_time": due, "status": "active",
+                    "trigger_time": None, "second_trigger_time": None,
+                })
+            today = datetime.now().date()
+            labels = [format_day_label(d, today) for d in days]
+            if len(labels) == 1:
+                day_str = labels[0]
+                if day_str not in ("idag", "imorgon") and not day_str.startswith("den"):
+                    day_str = f"på {day_str}"
+            else:
+                day_str = ", ".join(labels[:-1]) + f" och {labels[-1]}"
+            return {
+                "reply": f"Jag påminner dig också {day_str} kl {hour:02d}:{minute:02d}.",
+                "user_id": user_id,
+            }
+
     # påminn igen
     if "påminn igen" in lower:
         if reminders:
@@ -778,6 +828,42 @@ async def chat(payload: dict, request: Request):
     if state["waiting_for_time"]:
         waiting_for = state.get("waiting_for", "time_and_day")
         task = state["task"]
+
+        if waiting_for == "multi_day_times":
+            # Collecting day+time pairs one by one
+            input_text = normalize_input(lower)
+            input_days = parse_multiple_days(input_text)
+            input_hour, input_minute = parse_time_only(input_text)
+
+            if input_days and input_hour is not None:
+                # Got a day+time pair
+                collected = state.get("collected", [])
+                pending = state.get("pending_days", [])
+
+                for d in input_days:
+                    collected.append({"date": d, "hour": input_hour, "minute": input_minute})
+                    if d in pending:
+                        pending.remove(d)
+
+                state["collected"] = collected
+                state["pending_days"] = pending
+
+                if not pending:
+                    # All days accounted for → create reminders and confirm
+                    for item in collected:
+                        d = item["date"]
+                        due = datetime(d.year, d.month, d.day, item["hour"], item["minute"])
+                        reminders.append({
+                            "task": task, "due_time": due, "status": "active",
+                            "trigger_time": None, "second_trigger_time": None,
+                        })
+                    state["waiting_for_time"] = False
+                    return {"reply": format_collected_reminders(collected), "user_id": user_id}
+
+                # Still waiting for more days
+                return {"reply": "", "user_id": user_id}
+
+            return {"reply": "Skriv dag och tid, t.ex. 'onsdag kl 14'.", "user_id": user_id}
 
         if waiting_for == "day":
             # We have time, need day(s)
@@ -860,12 +946,21 @@ async def chat(payload: dict, request: Request):
             return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
 
         if days and hour is None:
-            # Days but no time → ask for time
-            state["waiting_for_time"] = True
-            state["task"] = task
-            state["waiting_for"] = "time"
-            state["pending_days"] = days
-            return {"reply": "Vilken tid?", "user_id": user_id}
+            if len(days) > 1:
+                # Multiple days, no time → collecting mode
+                state["waiting_for_time"] = True
+                state["task"] = task
+                state["waiting_for"] = "multi_day_times"
+                state["pending_days"] = days
+                state["collected"] = []
+                return {"reply": "Skriv tid och dag i separata meddelanden.", "user_id": user_id}
+            else:
+                # Single day, no time → ask for time
+                state["waiting_for_time"] = True
+                state["task"] = task
+                state["waiting_for"] = "time"
+                state["pending_days"] = days
+                return {"reply": "Vilken tid?", "user_id": user_id}
 
         if not days and hour is not None:
             # Time but no day → ask for day
