@@ -620,6 +620,60 @@ def overlaps(a_start, a_end, b_start, b_end):
     return a_start < b_end and a_end > b_start
 
 
+def find_next_free_slot(conflict_date, all_events):
+    """Find the next free 1-hour slot on the same day as the conflict."""
+    busy_blocks = [
+        (to_swedish(e["start"]), to_swedish(e["end"]))
+        for e in all_events
+        if not e["all_day"] and e["response"] != "declined"
+    ]
+    day_busy = [(s, e) for s, e in busy_blocks if s.date() == conflict_date]
+    slots = find_slots_for_day(conflict_date, day_busy)
+    if slots:
+        return slots[0]
+    # Try the next 3 days if nothing today
+    for offset in range(1, 4):
+        next_day = conflict_date + timedelta(days=offset)
+        day_busy = [(s, e) for s, e in busy_blocks if s.date() == next_day]
+        slots = find_slots_for_day(next_day, day_busy)
+        if slots:
+            return slots[0]
+    return None
+
+
+def format_conflict_message(pending_event, accepted_event, all_events):
+    """Build a conflict notification with suggested free slot."""
+    p_start = to_swedish(pending_event["start"])
+    p_end = to_swedish(pending_event["end"])
+    a_start = to_swedish(accepted_event["start"])
+    a_end = to_swedish(accepted_event["end"])
+    today = datetime.now(LOCAL_TZ).date()
+
+    p_day = format_day_label(p_start.date(), today)
+    a_day = format_day_label(a_start.date(), today)
+
+    if p_day not in ("idag", "imorgon") and not p_day.startswith("den"):
+        p_day = f"på {p_day}"
+    if a_day not in ("idag", "imorgon") and not a_day.startswith("den"):
+        a_day = f"på {a_day}"
+
+    msg = (
+        f"Möteskrock!\n"
+        f"{pending_event['summary']} {p_day} kl {p_start.strftime('%H:%M')}–{p_end.strftime('%H:%M')} "
+        f"krockar med {accepted_event['summary']} {a_day} kl {a_start.strftime('%H:%M')}–{a_end.strftime('%H:%M')}."
+    )
+
+    slot = find_next_free_slot(p_start.date(), all_events)
+    if slot:
+        s_start, s_end = slot
+        s_day = format_day_label(s_start.date(), today)
+        if s_day not in ("idag", "imorgon") and not s_day.startswith("den"):
+            s_day = f"på {s_day}"
+        msg += f"\nNästa lediga lucka: {s_day} kl {s_start.strftime('%H:%M')}–{s_end.strftime('%H:%M')}."
+
+    return msg
+
+
 def calendar_watcher():
     while True:
         for user_id, adapter in list(user_adapters.items()):
@@ -650,13 +704,7 @@ def calendar_watcher():
                                 continue
 
                             user_reported_conflicts[user_id].add(key)
-
-                            msg = (
-                                "Ny aktivitet i din kalender:\n"
-                                f"Du har möte med {a['summary']} kl {a['start'].astimezone().strftime('%H:%M')} "
-                                f"den {a['start'].astimezone().strftime('%Y-%m-%d')}.\n"
-                                f"Krockar med mötesförfrågan från {p['summary']}"
-                            )
+                            msg = format_conflict_message(p, a, all_events)
                             push_event(user_id, msg)
 
                 user_calendar_snapshots[user_id] = {e["id"]: e for e in all_events}
