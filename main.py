@@ -975,6 +975,32 @@ async def chat(payload: dict, request: Request):
         state["waiting_for"] = "time_and_day"
         return {"reply": "Tid och dag?", "user_id": user_id}
 
+    # If there are recent reminders and the message looks like a day+time,
+    # add as another reminder for the same task
+    if reminders:
+        days = parse_multiple_days(lower)
+        hour, minute = parse_time_only(lower)
+        if days and hour is not None:
+            last_task = reminders[-1]["task"]
+            for d in days:
+                due = datetime(d.year, d.month, d.day, hour, minute)
+                reminders.append({
+                    "task": last_task, "due_time": due, "status": "active",
+                    "trigger_time": None, "second_trigger_time": None,
+                })
+            today = datetime.now().date()
+            labels = [format_day_label(d, today) for d in days]
+            if len(labels) == 1:
+                day_str = labels[0]
+                if day_str not in ("idag", "imorgon") and not day_str.startswith("den"):
+                    day_str = f"på {day_str}"
+            else:
+                day_str = ", ".join(labels[:-1]) + f" och {labels[-1]}"
+            return {
+                "reply": f"Jag påminner dig också {day_str} kl {hour:02d}:{minute:02d}.",
+                "user_id": user_id,
+            }
+
     return {"reply": DEFAULT_REPLY, "user_id": user_id}
 
 
