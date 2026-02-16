@@ -9,8 +9,11 @@ from fastapi import FastAPI, Request, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pathlib import Path
 from datetime import datetime, timedelta, time as dtime, timezone
+from zoneinfo import ZoneInfo
 from typing import Optional
 from dotenv import load_dotenv
+
+LOCAL_TZ = ZoneInfo("Europe/Stockholm")
 
 from microsoft_calendar_adapter import MicrosoftCalendarAdapter
 from find_slots import find_slots_for_day, DAYS_AHEAD
@@ -226,6 +229,10 @@ def process_reminders_for_user(user_id: str):
 # Calendar question handler
 # ==================================================
 
+def to_swedish(dt: datetime) -> datetime:
+    return dt.astimezone(LOCAL_TZ)
+
+
 def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> str:
     lower = text.lower()
     now = datetime.utcnow()
@@ -238,14 +245,14 @@ def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> st
             return "Kunde inte hämta kalendern just nu."
 
         busy_blocks = [
-            (e["start"].astimezone(), e["end"].astimezone())
+            (to_swedish(e["start"]), to_swedish(e["end"]))
             for e in all_events
             if not e["all_day"] and e["response"] != "declined"
         ]
 
         suggestions = []
         for day_offset in range(DAYS_AHEAD):
-            day = (datetime.now() + timedelta(days=day_offset)).date()
+            day = (datetime.now(LOCAL_TZ) + timedelta(days=day_offset)).date()
             day_busy = [(s, e) for s, e in busy_blocks if s.date() == day]
             slots = find_slots_for_day(day, day_busy)
 
@@ -283,7 +290,30 @@ def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> st
             return "Du har inga fler möten idag."
 
         nxt = upcoming[0]
-        return f"Nästa möte: {nxt['summary']} kl {nxt['start'].astimezone().strftime('%H:%M')}"
+        return f"Nästa möte: {nxt['summary']} kl {to_swedish(nxt['start']).strftime('%H:%M')}"
+
+    # "vecka" / "veckan" → show all meetings this week
+    if "vecka" in lower:
+        try:
+            end = now + timedelta(days=7)
+            events = adapter.get_events(now, end)
+        except Exception:
+            return "Kunde inte hämta kalendern just nu."
+
+        timed = [e for e in events if not e["all_day"] and e["response"] != "declined"]
+
+        if not timed:
+            return "Du har inga möten den närmaste veckan."
+
+        lines = ["Veckans möten:"]
+        for e in timed:
+            s = to_swedish(e["start"])
+            en = to_swedish(e["end"])
+            weekday = WEEKDAY_NAMES[s.weekday()]
+            lines.append(
+                f"• {weekday} {s.strftime('%H:%M')}–{en.strftime('%H:%M')} {e['summary']}"
+            )
+        return "\n".join(lines)
 
     # Default: show today's schedule
     try:
@@ -300,10 +330,10 @@ def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> st
 
     lines = ["Dagens schema:"]
     for e in timed:
-        start_local = e["start"].astimezone()
-        end_local = e["end"].astimezone()
+        s = to_swedish(e["start"])
+        en = to_swedish(e["end"])
         lines.append(
-            f"• {start_local.strftime('%H:%M')}–{end_local.strftime('%H:%M')} {e['summary']}"
+            f"• {s.strftime('%H:%M')}–{en.strftime('%H:%M')} {e['summary']}"
         )
     return "\n".join(lines)
 
