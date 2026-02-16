@@ -431,6 +431,10 @@ hålla koll på om något ändras i din kalender"
 
       const data = await res.json();
 
+      if (data && data.user_id) {
+        document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";
+      }
+
       if (data && data.reply) {
         appendBlock(AGENT_NAME, data.reply, "log-agent");
       }
