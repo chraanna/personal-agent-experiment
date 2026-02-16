@@ -819,26 +819,11 @@ async def chat(payload: dict, request: Request):
         task = state["task"]
 
         if waiting_for == "multi_day_times":
-            # Collecting day+time pairs one by one
-            input_text = normalize_input(lower)
-            input_days = parse_multiple_days(input_text)
-            input_hour, input_minute = parse_time_only(input_text)
+            collected = state.get("collected", [])
 
-            if input_days and input_hour is not None:
-                # Got a day+time pair
-                collected = state.get("collected", [])
-                pending = state.get("pending_days", [])
-
-                for d in input_days:
-                    collected.append({"date": d, "hour": input_hour, "minute": input_minute})
-                    if d in pending:
-                        pending.remove(d)
-
-                state["collected"] = collected
-                state["pending_days"] = pending
-
-                if not pending:
-                    # All days accounted for → create reminders and confirm
+            # "klar" or stop word → finalize what we have
+            if lower in STOP_WORDS or lower == "klar":
+                if collected:
                     for item in collected:
                         d = item["date"]
                         due = datetime(d.year, d.month, d.day, item["hour"], item["minute"])
@@ -848,9 +833,19 @@ async def chat(payload: dict, request: Request):
                         })
                     state["waiting_for_time"] = False
                     return {"reply": format_collected_reminders(collected), "user_id": user_id}
+                state["waiting_for_time"] = False
+                return {"reply": DEFAULT_REPLY, "user_id": user_id}
 
-                # Still waiting for more days
-                return {"reply": "", "user_id": user_id}
+            # Try to parse a day+time pair
+            input_text = normalize_input(lower)
+            input_days = parse_multiple_days(input_text)
+            input_hour, input_minute = parse_time_only(input_text)
+
+            if input_days and input_hour is not None:
+                for d in input_days:
+                    collected.append({"date": d, "hour": input_hour, "minute": input_minute})
+                state["collected"] = collected
+                return {"reply": "Noterat.", "user_id": user_id}
 
             return {"reply": "Skriv dag och tid, t.ex. 'onsdag kl 14'.", "user_id": user_id}
 
