@@ -566,3 +566,8 @@ async def get_events(request: Request):
 @app.get("/", response_class=HTMLResponse)
 def ui():
     return Path("index.html").read_text(encoding="utf-8")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
