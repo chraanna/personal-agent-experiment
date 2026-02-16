@@ -233,6 +233,56 @@ def to_swedish(dt: datetime) -> datetime:
     return dt.astimezone(LOCAL_TZ)
 
 
+def parse_date_from_text(text: str) -> tuple:
+    """Parse a date reference from text. Returns (date, is_this_week)."""
+    lower = text.lower()
+    today = datetime.now(LOCAL_TZ)
+
+    # Explicit date: "13/4", "13/04", "3/2"
+    date_match = re.search(r"(\d{1,2})/(\d{1,2})", lower)
+    if date_match:
+        day = int(date_match.group(1))
+        month = int(date_match.group(2))
+        year = today.year
+        try:
+            target = datetime(year, month, day, tzinfo=LOCAL_TZ).date()
+            if target < today.date():
+                target = datetime(year + 1, month, day, tzinfo=LOCAL_TZ).date()
+            return target, False
+        except ValueError:
+            pass
+
+    if "idag" in lower:
+        return today.date(), True
+    if "imorgon" in lower or "i morgon" in lower:
+        return (today + timedelta(days=1)).date(), True
+
+    for day_name, weekday_num in WEEKDAYS.items():
+        if day_name in lower:
+            days_ahead = weekday_num - today.weekday()
+            if "nästa" in lower:
+                days_ahead += 7
+                target = (today + timedelta(days=days_ahead)).date()
+                return target, False
+            if days_ahead < 0:
+                days_ahead += 7
+            target = (today + timedelta(days=days_ahead)).date()
+            return target, True
+
+    return None, None
+
+
+def format_event_time(event: dict, use_weekday: bool) -> str:
+    """Format an event line. use_weekday=True → 'måndag 10:00', False → '17/2 10:00'."""
+    s = to_swedish(event["start"])
+    en = to_swedish(event["end"])
+    if use_weekday:
+        day_label = WEEKDAY_NAMES[s.weekday()]
+    else:
+        day_label = s.strftime("%-d/%-m")
+    return f"• {day_label} {s.strftime('%H:%M')}–{en.strftime('%H:%M')} {event['summary']}"
+
+
 def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> str:
     lower = text.lower()
     now = datetime.utcnow()
@@ -310,11 +360,23 @@ def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> st
         nxt = upcoming[0]
         return f"Nästa möte: {nxt['summary']} kl {to_swedish(nxt['start']).strftime('%H:%M')}"
 
-    # "vecka" / "veckan" → show all meetings this week
+    # "vecka" / "veckan" → show meetings
     if "vecka" in lower:
+        is_next_week = "nästa" in lower
         try:
-            end = now + timedelta(days=7)
-            events = adapter.get_events(now, end)
+            if is_next_week:
+                today = datetime.now(LOCAL_TZ)
+                days_to_monday = 7 - today.weekday()
+                week_start = (today + timedelta(days=days_to_monday)).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+                week_end = week_start + timedelta(days=7)
+                fetch_start = week_start.astimezone(timezone.utc)
+                fetch_end = week_end.astimezone(timezone.utc)
+            else:
+                fetch_start = now
+                fetch_end = now + timedelta(days=7)
+            events = adapter.get_events(fetch_start, fetch_end)
         except Exception:
             return "Kunde inte hämta kalendern just nu."
 
@@ -323,14 +385,41 @@ def handle_calendar_question(text: str, adapter: MicrosoftCalendarAdapter) -> st
         if not timed:
             return "Du har inga möten den närmaste veckan."
 
-        lines = ["Veckans möten:"]
+        use_weekday = not is_next_week
+        header = "Nästa veckas möten:" if is_next_week else "Veckans möten:"
+        lines = [header]
+        for e in timed:
+            lines.append(format_event_time(e, use_weekday))
+        return "\n".join(lines)
+
+    # Check for specific date in text
+    target_date, is_this_week = parse_date_from_text(lower)
+    if target_date:
+        try:
+            day_start = datetime(target_date.year, target_date.month, target_date.day, tzinfo=LOCAL_TZ)
+            day_end = day_start + timedelta(days=1)
+            events = adapter.get_events(
+                day_start.astimezone(timezone.utc),
+                day_end.astimezone(timezone.utc),
+            )
+        except Exception:
+            return "Kunde inte hämta kalendern just nu."
+
+        timed = [e for e in events if not e["all_day"] and e["response"] != "declined"]
+
+        if is_this_week:
+            day_label = WEEKDAY_NAMES[target_date.weekday()]
+        else:
+            day_label = f"{target_date.day}/{target_date.month}"
+
+        if not timed:
+            return f"Du har inga möten på {day_label}."
+
+        lines = [f"Möten {day_label}:"]
         for e in timed:
             s = to_swedish(e["start"])
             en = to_swedish(e["end"])
-            weekday = WEEKDAY_NAMES[s.weekday()]
-            lines.append(
-                f"• {weekday} {s.strftime('%H:%M')}–{en.strftime('%H:%M')} {e['summary']}"
-            )
+            lines.append(f"• {s.strftime('%H:%M')}–{en.strftime('%H:%M')} {e['summary']}")
         return "\n".join(lines)
 
     # Default: show today's schedule
