@@ -195,10 +195,21 @@ def parse_time_expression(text: str):
             due = now + timedelta(days=days_ahead)
             return due.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
-    due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if due < now:
-        return None
-    return due
+    # Only time, no day → return None (caller should ask "Vilken dag?")
+    return None
+
+
+def has_day_reference(text: str) -> bool:
+    """Check if text contains a day reference (idag, imorgon, weekday, om X min)."""
+    text = text.lower()
+    if re.search(r"om \d+\s*min", text):
+        return True
+    if "idag" in text or "imorgon" in text or "i morgon" in text:
+        return True
+    for day_name in WEEKDAYS:
+        if day_name in text:
+            return True
+    return False
 
 # ==================================================
 # Reminder processor (per-user)
@@ -231,6 +242,24 @@ def process_reminders_for_user(user_id: str):
 
 def to_swedish(dt: datetime) -> datetime:
     return dt.astimezone(LOCAL_TZ)
+
+
+def format_due_time(due: datetime) -> str:
+    """Format a reminder time naturally: 'idag kl 14', 'imorgon kl 10:30', 'på måndag kl 09'."""
+    now = datetime.now()
+    time_str = f"kl {due.strftime('%H:%M')}"
+
+    if due.date() == now.date():
+        return f"idag {time_str}"
+    if due.date() == (now + timedelta(days=1)).date():
+        return f"imorgon {time_str}"
+
+    weekday = WEEKDAY_NAMES[due.weekday()]
+    days_diff = (due.date() - now.date()).days
+    if days_diff <= 7:
+        return f"på {weekday} {time_str}"
+
+    return f"den {due.day}/{due.month} {time_str}"
 
 
 def parse_date_from_text(text: str) -> tuple:
@@ -647,8 +676,18 @@ async def chat(payload: dict, request: Request):
 
     # waiting for time
     if state["waiting_for_time"]:
-        due = parse_time_expression(lower)
+        # If we had partial time from before, combine with the day answer
+        partial = state.get("partial_time", "")
+        if partial:
+            combined = f"{partial} {lower}"
+            due = parse_time_expression(combined)
+            state.pop("partial_time", None)
+        else:
+            due = parse_time_expression(lower)
+
         if not due:
+            if partial:
+                return {"reply": "Vilken dag?", "user_id": user_id}
             return {"reply": "Tid och dag?", "user_id": user_id}
 
         task = state["task"]
@@ -662,9 +701,8 @@ async def chat(payload: dict, request: Request):
             "second_trigger_time": None,
         })
 
-        weekday_name = WEEKDAY_NAMES[due.weekday()]
         return {
-            "reply": f"Jag påminner dig att {task} på {weekday_name} kl {due.strftime('%H:%M')}.",
+            "reply": f"Jag påminner dig {format_due_time(due)}.",
             "user_id": user_id,
         }
 
@@ -682,8 +720,30 @@ async def chat(payload: dict, request: Request):
 
     # new task
     if "påminn" in lower or is_task_like(lower):
+        task = clean_task(lower)
+        due = parse_time_expression(lower)
+
+        if due:
+            # Time + day found → confirm directly
+            reminders.append({
+                "task": task,
+                "due_time": due,
+                "status": "active",
+                "trigger_time": None,
+                "second_trigger_time": None,
+            })
+            return {"reply": f"Jag påminner dig {format_due_time(due)}.", "user_id": user_id}
+
+        # Check if there's a time but no day (e.g. "kl 14" without "imorgon")
+        has_time = re.search(r"(\d{1,2}):(\d{2})", lower) or re.search(r"\bkl\s*\d{1,2}\b", lower)
+        if has_time and not has_day_reference(lower):
+            state["waiting_for_time"] = True
+            state["task"] = task
+            state["partial_time"] = lower
+            return {"reply": "Vilken dag?", "user_id": user_id}
+
         state["waiting_for_time"] = True
-        state["task"] = clean_task(lower)
+        state["task"] = task
         return {"reply": "Tid och dag?", "user_id": user_id}
 
     return {"reply": DEFAULT_REPLY, "user_id": user_id}
