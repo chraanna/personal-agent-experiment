@@ -32,6 +32,66 @@
       line-height: 1.5;
     }
 
+    .muted {
+      color: #777;
+    }
+
+    .frame {
+      border: 1px solid #eee;
+      border-radius: 12px;
+      padding: 20px 18px 18px;
+    }
+
+    .section {
+      margin-bottom: 26px;
+    }
+
+    input {
+      width: 100%;
+      font-size: 14px;
+      padding: 8px 2px;
+      border: none;
+      border-bottom: 1px solid #ddd;
+      outline: none;
+      background: transparent;
+    }
+
+    /* Personality pills */
+    .choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .choice {
+      padding: 6px 12px;
+      font-size: 13px;
+      border: 1px solid #444;
+      border-radius: 999px;
+      background: #fff;
+      color: #111;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* Calendar link */
+    .calendar-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #111;
+      text-decoration: none;
+      border-bottom: 1px solid #ddd;
+    }
+
+    /* CTA */
+    .cta {
+      margin-top: 32px;
+      display: flex;
+      justify-content: center;
+    }
+
     /* ===== Auth bar ===== */
 
     .auth-bar {
@@ -77,18 +137,7 @@
       color: #999;
     }
 
-    .frame {
-      border: 1px solid #eee;
-      border-radius: 12px;
-      padding: 20px 18px 18px;
-    }
-
-    .input-frame {
-      border: 1px solid #e0e0e0;
-      border-radius: 10px;
-      padding: 12px;
-      margin-top: 16px;
-    }
+    /* ===== Main view ===== */
 
     textarea {
       width: 100%;
@@ -107,6 +156,13 @@
       line-height: 1.4;
       color: #999;
       white-space: pre-line;
+    }
+
+    .input-frame {
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 16px;
     }
 
     .send-row {
@@ -173,55 +229,132 @@
       font-size: 13px;
       color: #777;
     }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <!-- Auth bar -->
-  <div class="auth-bar">
-    <div class="auth-status">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="authLabel">Kalender: ej ansluten</span>
+
+  <!-- ONBOARDING -->
+  <div id="onboarding" class="frame">
+
+    <div class="section">
+      <p>Hej.</p>
+      <p>Jag är din personliga assistent.</p>
+      <p>Jag tar ansvar för sådant du inte ska behöva lägga tid på.</p>
+      <p>
+        Jag kan påminna dig om saker du behöver göra<br>
+        som att ringa mamma, köpa mjölk eller boka träningspass.<br>
+        Jag kan hålla koll på lediga luckor i din kalender<br>
+        och berätta om möten krockar.
+      </p>
     </div>
-    <div>
-      <a id="loginLink" href="#">Logga in</a>
-      <span class="next-meeting" id="nextMeeting"></span>
+
+    <div class="section">
+      <p>Vad heter du?</p>
+      <input id="userName" />
     </div>
-  </div>
 
-  <div class="frame">
-    <p>
-      Vad vill du att jag tar ansvar för?<br>
-      Skriv nedan så påminner jag när det är dags.
-    </p>
+    <div class="section">
+      <p>Jag heter Shilpi.</p>
+      <p class="muted">Om du vill kan du ge mig ett annat namn.</p>
+      <input id="agentName" value="Shilpi" />
+    </div>
 
-    <div class="input-frame">
-      <textarea
-        id="messageInput"
-        placeholder="påminna dig om att ringa mamma imorgon kl 14"
-      ></textarea>
+    <div class="section">
+      <p>Alla assistenter är olika.</p>
+      <p class="muted">Här kan du ge mig en personlighet som passar dig.</p>
 
-      <div class="send-row">
-        <div class="send-btn" id="sendBtn" aria-label="Skicka">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 19V5" />
-            <path d="M6 11l6-6 6 6" />
-          </svg>
-        </div>
+      <div class="choices">
+        <div class="choice">Realistisk</div>
+        <div class="choice">Humor</div>
+        <div class="choice">Lugn</div>
+        <div class="choice">Närvarande</div>
+        <div class="choice">Minimal</div>
+        <div class="choice">Varm</div>
+        <div class="choice">Neutral</div>
       </div>
     </div>
 
-    <!-- Gemensam logg -->
-    <div id="log"></div>
+    <div class="section">
+      <p>
+        Jag kan ge förslag på nya mötestider<br>
+        eller hålla koll om något ändras i din kalender.
+      </p>
+      <a href="#" class="calendar-link" id="calendarLink">Ge tillgång till kalender</a>
+    </div>
 
-    <div class="signature">/ Shilpi</div>
+    <div class="cta">
+      <div class="choice" id="startBtn">Kom igång</div>
+    </div>
+
   </div>
+
+  <!-- MAIN VIEW -->
+  <div id="mainView" class="hidden">
+
+    <!-- Auth bar -->
+    <div class="auth-bar">
+      <div class="auth-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="authLabel">Kalender: ej ansluten</span>
+      </div>
+      <div>
+        <a id="loginLink" href="#">Logga in</a>
+        <span class="next-meeting" id="nextMeeting"></span>
+      </div>
+    </div>
+
+    <div class="frame">
+      <p id="greeting"></p>
+
+      <p>
+        Vad vill du att jag tar ansvar för?<br>
+        Skriv nedan så påminner jag när det är dags.
+      </p>
+
+      <div class="input-frame">
+        <textarea
+          id="messageInput"
+          placeholder="påminna dig om att ringa mamma
+hitta ledig tid när möten behöver planeras om
+hålla koll på om något ändras i din kalender"
+        ></textarea>
+
+        <div class="send-row">
+          <div class="send-btn" id="sendBtn" aria-label="Skicka">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 19V5" />
+              <path d="M6 11l6-6 6 6" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gemensam logg -->
+      <div id="log"></div>
+
+      <div class="signature" id="signature"></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-  const OWNER_NAME = "Du";
-  const AGENT_NAME = "Shilpi";
+  const onboarding = document.getElementById("onboarding");
+  const mainView = document.getElementById("mainView");
+  const startBtn = document.getElementById("startBtn");
+  const calendarLink = document.getElementById("calendarLink");
+
+  const userNameInput = document.getElementById("userName");
+  const agentNameInput = document.getElementById("agentName");
+
+  const greetingEl = document.getElementById("greeting");
+  const signatureEl = document.getElementById("signature");
 
   const messageInput = document.getElementById("messageInput");
   const sendBtn = document.getElementById("sendBtn");
@@ -230,6 +363,39 @@
   const authLabel = document.getElementById("authLabel");
   const statusDot = document.getElementById("statusDot");
   const nextMeetingEl = document.getElementById("nextMeeting");
+
+  let OWNER_NAME = "Du";
+  let AGENT_NAME = "Shilpi";
+
+  // --- Onboarding ---
+
+  calendarLink.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/auth/login");
+      const data = await res.json();
+      if (data.login_url) {
+        document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";
+        window.location.href = data.login_url;
+      }
+    } catch (_) {}
+  });
+
+  startBtn.addEventListener("click", () => {
+    const userName = userNameInput.value || "";
+    const agentName = agentNameInput.value || "Shilpi";
+
+    OWNER_NAME = userName || "Du";
+    AGENT_NAME = agentName;
+
+    greetingEl.textContent = userName ? "Hej " + userName + "," : "Hej,";
+    signatureEl.textContent = "/ " + agentName;
+
+    onboarding.classList.add("hidden");
+    mainView.classList.remove("hidden");
+  });
+
+  // --- Chat ---
 
   function appendBlock(name, text, className) {
     const wrapper = document.createElement("div");
@@ -270,9 +436,7 @@
       if (data && data.reply) {
         appendBlock(AGENT_NAME, data.reply, "log-agent");
       }
-    } catch (_) {
-      // Tyst misslyckande
-    }
+    } catch (_) {}
   }
 
   async function pollEvents() {
@@ -293,7 +457,6 @@
       const res = await fetch("/auth/login");
       const data = await res.json();
       if (data.login_url) {
-        // Store user_id cookie before redirect so callback can match
         document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";
         window.location.href = data.login_url;
       }
