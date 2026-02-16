@@ -276,7 +276,7 @@ def format_day_label(d, today) -> str:
     return f"den {d.day}/{d.month}"
 
 
-def format_multiple_days(dates: list, hour: int, minute: int) -> str:
+def format_multiple_days(task: str, dates: list, hour: int, minute: int) -> str:
     """Format a confirmation for multiple reminder days."""
     today = datetime.now().date()
     labels = [format_day_label(d, today) for d in dates]
@@ -284,12 +284,10 @@ def format_multiple_days(dates: list, hour: int, minute: int) -> str:
 
     if len(labels) == 1:
         prefix = labels[0]
-        # Add "på" for weekday names
         if prefix not in ("idag", "imorgon") and not prefix.startswith("den"):
             prefix = f"på {prefix}"
-        return f"Jag påminner dig {prefix} {time_str}."
+        return f"Jag påminner dig att {task} {prefix} {time_str}."
 
-    # Join with commas and "och"
     formatted = []
     for label in labels:
         if label not in ("idag", "imorgon") and not label.startswith("den"):
@@ -302,13 +300,11 @@ def format_multiple_days(dates: list, hour: int, minute: int) -> str:
     else:
         day_str = ", ".join(formatted[:-1]) + f" och {formatted[-1]}"
 
-    return f"Jag påminner dig {day_str} {time_str}."
+    return f"Jag påminner dig att {task} {day_str} {time_str}."
 
 
-def format_collected_reminders(collected: list) -> str:
-    """Format confirmation for collected reminders with different times per day.
-    collected = [{"date": date, "hour": int, "minute": int}, ...]
-    """
+def format_collected_reminders(task: str, collected: list) -> str:
+    """Format confirmation for collected reminders with different times per day."""
     today = datetime.now().date()
     parts = []
     for item in collected:
@@ -319,10 +315,10 @@ def format_collected_reminders(collected: list) -> str:
         parts.append(f"{label} kl {item['hour']:02d}:{item['minute']:02d}")
 
     if len(parts) == 1:
-        return f"Jag påminner dig {parts[0]}."
+        return f"Jag påminner dig att {task} {parts[0]}."
     if len(parts) == 2:
-        return f"Jag påminner dig {parts[0]} och {parts[1]}."
-    return f"Jag påminner dig {', '.join(parts[:-1])} och {parts[-1]}."
+        return f"Jag påminner dig att {task} {parts[0]} och {parts[1]}."
+    return f"Jag påminner dig att {task} {', '.join(parts[:-1])} och {parts[-1]}."
 
 # ==================================================
 # Reminder processor (per-user)
@@ -357,22 +353,24 @@ def to_swedish(dt: datetime) -> datetime:
     return dt.astimezone(LOCAL_TZ)
 
 
-def format_due_time(due: datetime) -> str:
-    """Format a reminder time naturally: 'idag kl 14', 'imorgon kl 10:30', 'på måndag kl 09'."""
+def format_due_time(task: str, due: datetime) -> str:
+    """Format a reminder confirmation with task and time."""
     now = datetime.now()
     time_str = f"kl {due.strftime('%H:%M')}"
 
     if due.date() == now.date():
-        return f"idag {time_str}"
-    if due.date() == (now + timedelta(days=1)).date():
-        return f"imorgon {time_str}"
+        when = f"idag {time_str}"
+    elif due.date() == (now + timedelta(days=1)).date():
+        when = f"imorgon {time_str}"
+    else:
+        weekday = WEEKDAY_NAMES[due.weekday()]
+        days_diff = (due.date() - now.date()).days
+        if days_diff <= 7:
+            when = f"på {weekday} {time_str}"
+        else:
+            when = f"den {due.day}/{due.month} {time_str}"
 
-    weekday = WEEKDAY_NAMES[due.weekday()]
-    days_diff = (due.date() - now.date()).days
-    if days_diff <= 7:
-        return f"på {weekday} {time_str}"
-
-    return f"den {due.day}/{due.month} {time_str}"
+    return f"Jag påminner dig att {task} {when}."
 
 
 def parse_date_from_text(text: str) -> tuple:
@@ -800,7 +798,7 @@ async def chat(payload: dict, request: Request):
             else:
                 day_str = ", ".join(labels[:-1]) + f" och {labels[-1]}"
             return {
-                "reply": f"Jag påminner dig också {day_str} kl {hour:02d}:{minute:02d}.",
+                "reply": f"Jag påminner dig också att {task} {day_str} kl {hour:02d}:{minute:02d}.",
                 "user_id": user_id,
             }
 
@@ -832,7 +830,7 @@ async def chat(payload: dict, request: Request):
                             "trigger_time": None, "second_trigger_time": None,
                         })
                     state["waiting_for_time"] = False
-                    return {"reply": format_collected_reminders(collected), "user_id": user_id}
+                    return {"reply": format_collected_reminders(task, collected), "user_id": user_id}
                 state["waiting_for_time"] = False
                 return {"reply": DEFAULT_REPLY, "user_id": user_id}
 
@@ -845,7 +843,15 @@ async def chat(payload: dict, request: Request):
                 for d in input_days:
                     collected.append({"date": d, "hour": input_hour, "minute": input_minute})
                 state["collected"] = collected
-                return {"reply": "Noterat.", "user_id": user_id}
+                today = datetime.now().date()
+                d = input_days[0]
+                label = format_day_label(d, today)
+                if label not in ("idag", "imorgon") and not label.startswith("den"):
+                    label = f"på {label}"
+                return {
+                    "reply": f"Noterat. {task.capitalize()} {label} kl {input_hour:02d}:{input_minute:02d}.",
+                    "user_id": user_id,
+                }
 
             return {"reply": "Skriv dag och tid, t.ex. 'onsdag kl 14'.", "user_id": user_id}
 
@@ -870,7 +876,7 @@ async def chat(payload: dict, request: Request):
                 })
 
             state["waiting_for_time"] = False
-            return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
+            return {"reply": format_multiple_days(task, days, hour, minute), "user_id": user_id}
 
         if waiting_for == "time":
             # We have day(s), need time
@@ -887,7 +893,7 @@ async def chat(payload: dict, request: Request):
                 })
 
             state["waiting_for_time"] = False
-            return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
+            return {"reply": format_multiple_days(task, days, hour, minute), "user_id": user_id}
 
         # waiting for both time and day
         # Check if multiple days → switch to collecting mode
@@ -908,7 +914,7 @@ async def chat(payload: dict, request: Request):
                 "trigger_time": None, "second_trigger_time": None,
             })
             state["waiting_for_time"] = False
-            return {"reply": f"Jag påminner dig {format_due_time(due)}.", "user_id": user_id}
+            return {"reply": format_due_time(task, due), "user_id": user_id}
 
         return {"reply": "Tid och dag?", "user_id": user_id}
 
@@ -938,7 +944,7 @@ async def chat(payload: dict, request: Request):
                     "task": task, "due_time": due, "status": "active",
                     "trigger_time": None, "second_trigger_time": None,
                 })
-            return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
+            return {"reply": format_multiple_days(task, days, hour, minute), "user_id": user_id}
 
         if days and hour is None:
             if len(days) > 1:
@@ -974,7 +980,7 @@ async def chat(payload: dict, request: Request):
                 "task": task, "due_time": due, "status": "active",
                 "trigger_time": None, "second_trigger_time": None,
             })
-            return {"reply": f"Jag påminner dig {format_due_time(due)}.", "user_id": user_id}
+            return {"reply": format_due_time(task, due), "user_id": user_id}
 
         state["waiting_for_time"] = True
         state["task"] = task
@@ -1003,7 +1009,7 @@ async def chat(payload: dict, request: Request):
             else:
                 day_str = ", ".join(labels[:-1]) + f" och {labels[-1]}"
             return {
-                "reply": f"Jag påminner dig också {day_str} kl {hour:02d}:{minute:02d}.",
+                "reply": f"Jag påminner dig också att {last_task} {day_str} kl {hour:02d}:{minute:02d}.",
                 "user_id": user_id,
             }
 
