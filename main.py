@@ -764,9 +764,21 @@ async def chat(payload: dict, request: Request):
     message = payload.get("message", "").strip()
     lower = message.lower()
     user_id = get_user_id(request)
+    is_new_user = False
 
     if not user_id:
         user_id = str(uuid.uuid4())
+        is_new_user = True
+
+    result = await _handle_chat(message, lower, user_id, request)
+
+    resp = JSONResponse(result)
+    if is_new_user:
+        resp.set_cookie(key="shilpi_user_id", value=user_id, httponly=True, max_age=60*60*24*30)
+    return resp
+
+
+async def _handle_chat(message: str, lower: str, user_id: str, request: Request):
 
     reminders = get_reminders(user_id)
     state = get_reminder_state(user_id)
