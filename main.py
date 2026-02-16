@@ -128,17 +128,6 @@ def is_calendar_question(text: str):
     return any(k in text for k in keywords)
 
 
-def is_task_like(text: str):
-    text = text.lower()
-    if is_calendar_question(text):
-        return False
-    if any(text.startswith(q) for q in ["vad", "när", "visa", "hur"]):
-        return False
-    if len(text.split()) <= 5:
-        return True
-    return False
-
-
 def clean_task(text: str):
     text = text.lower()
     text = re.sub(r"påminn mig att", "", text)
@@ -930,7 +919,7 @@ async def chat(payload: dict, request: Request):
             }
 
     # new task
-    if "påminn" in lower or is_task_like(lower):
+    if "påminn" in lower:
         task = clean_task(lower)
         days = parse_multiple_days(lower)
         hour, minute = parse_time_only(lower)
