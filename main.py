@@ -895,6 +895,17 @@ async def chat(payload: dict, request: Request):
             return {"reply": format_multiple_days(days, hour, minute), "user_id": user_id}
 
         # waiting for both time and day
+        # Check if multiple days → switch to collecting mode
+        days = parse_multiple_days(lower)
+        if len(days) > 1:
+            state["waiting_for"] = "multi_day_times"
+            state["pending_days"] = days
+            state["collected"] = []
+            return {
+                "reply": "Jag kan ta flera påminnelser, men behöver tydligare uppdelning.\nSkriv dag och tid för varje tillfälle.",
+                "user_id": user_id,
+            }
+
         due = parse_time_expression(lower)
         if due:
             reminders.append({
