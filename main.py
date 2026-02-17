@@ -699,8 +699,10 @@ def format_conflict_message(pending_event, accepted_event, all_events):
 
 def calendar_watcher():
     while True:
+        print(f"[watcher] tick — {len(user_adapters)} users", flush=True)
         for user_id, adapter in list(user_adapters.items()):
             if not adapter.is_connected():
+                print(f"[watcher] {user_id[:8]}… not connected", flush=True)
                 continue
 
             try:
@@ -711,9 +713,12 @@ def calendar_watcher():
                 accepted = [e for e in all_events if e["response"] == "accepted"]
                 pending = [e for e in all_events if e["response"] == "needsAction"]
 
+                print(f"[watcher] {user_id[:8]}… {len(all_events)} events, {len(accepted)} accepted, {len(pending)} pending", flush=True)
+
                 snapshot = user_calendar_snapshots.get(user_id)
                 if snapshot is None:
                     user_calendar_snapshots[user_id] = {e["id"]: e for e in all_events}
+                    print(f"[watcher] {user_id[:8]}… first snapshot saved", flush=True)
                     continue
 
                 if user_id not in user_reported_conflicts:
@@ -728,12 +733,13 @@ def calendar_watcher():
 
                             user_reported_conflicts[user_id].add(key)
                             msg = format_conflict_message(p, a, all_events)
+                            print(f"[watcher] CONFLICT: {msg}", flush=True)
                             push_event(user_id, msg)
 
                 user_calendar_snapshots[user_id] = {e["id"]: e for e in all_events}
 
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[watcher] ERROR for {user_id[:8]}…: {exc}", flush=True)
 
             process_reminders_for_user(user_id)
 
