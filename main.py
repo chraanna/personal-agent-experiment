@@ -123,6 +123,23 @@ STOP_WORDS = ["klar", "ok", "tack", "fixat", "gjort", "klart"]
 # Intent detection
 # ==================================================
 
+TASK_VERBS = [
+    "ring", "ringa", "handla", "boka", "hämta", "köpa", "skicka",
+    "maila", "mejla", "betala", "fixa", "laga", "städa", "tvätta",
+    "träna", "springa", "kolla", "svara", "läsa", "skriv", "skriva",
+    "beställ", "beställa", "lämna", "hämta", "tanka", "diska",
+]
+
+
+def detect_task(text: str) -> str | None:
+    """Detect if text looks like a task. Returns cleaned task or None."""
+    text = re.sub(r"^\s*(hej|hallå|tjena|tja|hejsan)\s*,?\s*", "", text.lower()).strip()
+    for verb in TASK_VERBS:
+        if re.search(rf"\b{verb}\b", text):
+            return text
+    return None
+
+
 def is_calendar_question(text: str):
     text = text.lower()
     if "?" in text:
@@ -1116,6 +1133,17 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
                 "reply": "Du behöver logga in med Microsoft för att jag ska kunna se din kalender.",
                 "user_id": user_id,
             }
+
+    # detect task-like messages without "påminn"
+    detected = detect_task(lower)
+    if detected:
+        state["waiting_for_time"] = True
+        state["task"] = detected
+        state["waiting_for"] = "time_and_day"
+        return {
+            "reply": f"Vill du att jag påminner dig att {detected}? Skriv tid och dag.",
+            "user_id": user_id,
+        }
 
     return {"reply": DEFAULT_REPLY, "user_id": user_id}
 
