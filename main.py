@@ -16,7 +16,9 @@ from dotenv import load_dotenv
 import json as _json
 
 LOCAL_TZ = ZoneInfo("Europe/Stockholm")
-REMINDERS_FILE = Path("reminders.json")
+DATA_DIR = Path(os.getenv("DATA_DIR", "data"))
+DATA_DIR.mkdir(exist_ok=True)
+REMINDERS_FILE = DATA_DIR / "reminders.json"
 
 from microsoft_calendar_adapter import MicrosoftCalendarAdapter
 from find_slots import find_slots_for_day, DAYS_AHEAD
@@ -803,7 +805,7 @@ def calendar_watcher():
 @app.on_event("startup")
 def start_watcher():
     # Restore adapters from saved tokens on startup
-    tokens_dir = Path("tokens")
+    tokens_dir = DATA_DIR / "tokens"
     if tokens_dir.exists():
         for token_file in tokens_dir.glob("*.json"):
             user_id = token_file.stem

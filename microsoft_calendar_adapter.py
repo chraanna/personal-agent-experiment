@@ -10,8 +10,9 @@ from datetime import datetime, timedelta, timezone
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 
-TOKENS_DIR = Path("tokens")
-TOKENS_DIR.mkdir(exist_ok=True)
+DATA_DIR = Path(os.getenv("DATA_DIR", "data"))
+TOKENS_DIR = DATA_DIR / "tokens"
+TOKENS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Microsoft → normalized response mapping
 _RESPONSE_MAP = {

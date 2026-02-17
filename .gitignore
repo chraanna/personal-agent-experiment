@@ -6,6 +6,7 @@ token.json
 *.swp
 
 tokens/
+data/
 reminders.json
 
 # Python
