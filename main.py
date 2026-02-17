@@ -1013,19 +1013,7 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
 
         return {"reply": "Tid och dag?", "user_id": user_id}
 
-    # calendar question
-    if is_calendar_question(lower):
-        adapter = get_adapter(user_id)
-        if adapter and adapter.is_connected():
-            reply = handle_calendar_question(message, adapter)
-            return {"reply": reply, "user_id": user_id}
-        else:
-            return {
-                "reply": "Du behöver logga in med Microsoft för att jag ska kunna se din kalender.",
-                "user_id": user_id,
-            }
-
-    # new task
+    # new task (check before calendar questions — "kan du påminna?" contains "?")
     if "påminn" in lower:
         task = clean_task(lower)
         days = parse_multiple_days(lower)
@@ -1105,6 +1093,18 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
                 day_str = ", ".join(labels[:-1]) + f" och {labels[-1]}"
             return {
                 "reply": f"Jag påminner dig också att {last_task} {day_str} kl {hour:02d}:{minute:02d}.",
+                "user_id": user_id,
+            }
+
+    # calendar question
+    if is_calendar_question(lower):
+        adapter = get_adapter(user_id)
+        if adapter and adapter.is_connected():
+            reply = handle_calendar_question(message, adapter)
+            return {"reply": reply, "user_id": user_id}
+        else:
+            return {
+                "reply": "Du behöver logga in med Microsoft för att jag ska kunna se din kalender.",
                 "user_id": user_id,
             }
 
