@@ -4,6 +4,7 @@ import threading
 import time
 import re
 import requests
+from urllib.parse import quote
 
 from fastapi import FastAPI, Request, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
@@ -130,6 +131,8 @@ def is_calendar_question(text: str):
 
 def clean_task(text: str):
     text = normalize_input(text)
+    # Remove greetings
+    text = re.sub(r"^\s*(hej|hallå|tjena|tja|hejsan|yo)\s*,?\s*", "", text)
     # Remove reminder phrases
     text = re.sub(r"påminn mig att", "", text)
     text = re.sub(r"påminn mig om att", "", text)
@@ -739,9 +742,9 @@ def login():
         f"{AUTHORIZE_URL}"
         f"?client_id={CLIENT_ID}"
         f"&response_type=code"
-        f"&redirect_uri={REDIRECT_URI}"
+        f"&redirect_uri={quote(REDIRECT_URI, safe='')}"
         f"&response_mode=query"
-        f"&scope={scope_str}"
+        f"&scope={quote(scope_str, safe='')}"
         f"&state={state}"
     )
 
