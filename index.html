@@ -185,7 +185,12 @@
       color: var(--white);
     }
 
-    /* Calendar link */
+    /* Calendar links */
+    .calendar-options {
+      display: flex;
+      gap: 16px;
+    }
+
     .calendar-link {
       display: inline-block;
       font-size: 13px;
@@ -448,8 +453,11 @@
     </div>
 
     <div class="card">
-      <div class="card-label">Kalender</div>
-      <a href="#" class="calendar-link" id="calendarLink">Koppla kalender</a>
+      <div class="card-label">Koppla kalender</div>
+      <div class="calendar-options">
+        <a href="#" class="calendar-link" id="calendarLink">Microsoft</a>
+        <a href="#" class="calendar-link" id="googleCalendarLink">Google</a>
+      </div>
     </div>
 
     <div class="cta">
@@ -513,6 +521,7 @@ hålla koll på om något ändras i din kalender"
   const mainView = document.getElementById("mainView");
   const startBtn = document.getElementById("startBtn");
   const calendarLink = document.getElementById("calendarLink");
+  const googleCalendarLink = document.getElementById("googleCalendarLink");
 
   const userNameInput = document.getElementById("userName");
   const agentNameInput = document.getElementById("agentName");
@@ -575,6 +584,18 @@ hålla koll på om något ändras i din kalender"
     e.preventDefault();
     try {
       const res = await fetch("/auth/login");
+      const data = await res.json();
+      if (data.login_url) {
+        document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";
+        window.location.href = data.login_url;
+      }
+    } catch (_) {}
+  });
+
+  googleCalendarLink.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/auth/google/login");
       const data = await res.json();
       if (data.login_url) {
         document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";

@@ -21,6 +21,7 @@ DATA_DIR.mkdir(exist_ok=True)
 REMINDERS_FILE = DATA_DIR / "reminders.json"
 
 from microsoft_calendar_adapter import MicrosoftCalendarAdapter
+from google_calendar_adapter import GoogleCalendarAdapter
 from find_slots import find_slots_for_day, DAYS_AHEAD
 
 load_dotenv()
@@ -31,18 +32,33 @@ app = FastAPI()
 # Microsoft OAuth config
 # ==================================================
 
-CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID")
-CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
-TENANT_ID = os.getenv("MICROSOFT_TENANT_ID")
-REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI")
+MS_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID")
+MS_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
+MS_TENANT_ID = os.getenv("MICROSOFT_TENANT_ID")
+MS_REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI")
 
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-AUTHORIZE_URL = f"{AUTHORITY}/oauth2/v2.0/authorize"
-TOKEN_URL = f"{AUTHORITY}/oauth2/v2.0/token"
+MS_AUTHORITY = f"https://login.microsoftonline.com/{MS_TENANT_ID}"
+MS_AUTHORIZE_URL = f"{MS_AUTHORITY}/oauth2/v2.0/authorize"
+MS_TOKEN_URL = f"{MS_AUTHORITY}/oauth2/v2.0/token"
 
-SCOPES = [
+MS_SCOPES = [
     "https://graph.microsoft.com/Calendars.Read",
     "offline_access",
+]
+
+# ==================================================
+# Google OAuth config
+# ==================================================
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/calendar.readonly",
 ]
 
 # ==================================================
@@ -111,7 +127,7 @@ def get_personality(personality_key: str) -> dict:
 # Per-user state
 # ==================================================
 
-user_adapters: dict[str, MicrosoftCalendarAdapter] = {}
+user_adapters: dict = {}  # str -> MicrosoftCalendarAdapter | GoogleCalendarAdapter
 user_reminders: dict[str, list] = {}
 user_reminder_state: dict[str, dict] = {}
 user_events: dict[str, list[str]] = {}
@@ -122,14 +138,24 @@ user_calendar_snapshots: dict[str, dict] = {}
 user_reported_conflicts: dict[str, set] = {}
 
 
-def get_adapter(user_id: str) -> Optional[MicrosoftCalendarAdapter]:
+def get_adapter(user_id: str):
+    """Get calendar adapter (Microsoft or Google) for a user."""
     if user_id in user_adapters:
         return user_adapters[user_id]
-    token_path = Path("tokens") / f"{user_id}.json"
+    token_path = DATA_DIR / "tokens" / f"{user_id}.json"
     if token_path.exists():
-        adapter = MicrosoftCalendarAdapter(user_id)
-        user_adapters[user_id] = adapter
-        return adapter
+        try:
+            with open(token_path, "r") as f:
+                token_data = _json.load(f)
+            if token_data.get("provider") == "google":
+                adapter = GoogleCalendarAdapter(user_id)
+            else:
+                adapter = MicrosoftCalendarAdapter(user_id)
+            if adapter.is_connected():
+                user_adapters[user_id] = adapter
+                return adapter
+        except Exception:
+            pass
     return None
 
 
@@ -861,28 +887,27 @@ def start_watcher():
         for token_file in tokens_dir.glob("*.json"):
             user_id = token_file.stem
             if user_id not in user_adapters:
-                adapter = MicrosoftCalendarAdapter(user_id)
-                if adapter.is_connected():
-                    user_adapters[user_id] = adapter
+                adapter = get_adapter(user_id)
+                if adapter:
                     print(f"[startup] Restored adapter for {user_id[:8]}…", flush=True)
     print(f"[startup] {len(user_adapters)} users loaded", flush=True)
     _load_reminders()
     threading.Thread(target=calendar_watcher, daemon=True).start()
 
 # ==================================================
-# OAuth routes
+# OAuth routes — Microsoft
 # ==================================================
 
 @app.get("/auth/login")
 def login():
-    scope_str = " ".join(SCOPES)
+    scope_str = " ".join(MS_SCOPES)
     state = str(uuid.uuid4())
 
     url = (
-        f"{AUTHORIZE_URL}"
-        f"?client_id={CLIENT_ID}"
+        f"{MS_AUTHORIZE_URL}"
+        f"?client_id={MS_CLIENT_ID}"
         f"&response_type=code"
-        f"&redirect_uri={quote(REDIRECT_URI, safe='')}"
+        f"&redirect_uri={quote(MS_REDIRECT_URI, safe='')}"
         f"&response_mode=query"
         f"&scope={quote(scope_str, safe='')}"
         f"&state={state}"
@@ -900,15 +925,15 @@ def callback(request: Request):
         return JSONResponse({"error": "No code returned"})
 
     token_data = {
-        "client_id": CLIENT_ID,
-        "scope": " ".join(SCOPES),
+        "client_id": MS_CLIENT_ID,
+        "scope": " ".join(MS_SCOPES),
         "code": code,
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": MS_REDIRECT_URI,
         "grant_type": "authorization_code",
-        "client_secret": CLIENT_SECRET,
+        "client_secret": MS_CLIENT_SECRET,
     }
 
-    response = requests.post(TOKEN_URL, data=token_data)
+    response = requests.post(MS_TOKEN_URL, data=token_data)
 
     if response.status_code != 200:
         return JSONResponse({
@@ -933,6 +958,78 @@ def callback(request: Request):
     }
 
     adapter = MicrosoftCalendarAdapter(user_id)
+    adapter.save_token(token_store)
+    user_adapters[user_id] = adapter
+
+    resp = RedirectResponse(url="/", status_code=302)
+    resp.set_cookie(key="shilpi_user_id", value=user_id, httponly=True, max_age=60*60*24*30)
+    return resp
+
+# ==================================================
+# OAuth routes — Google
+# ==================================================
+
+@app.get("/auth/google/login")
+def google_login():
+    scope_str = " ".join(GOOGLE_SCOPES)
+    state = str(uuid.uuid4())
+
+    url = (
+        f"{GOOGLE_AUTHORIZE_URL}"
+        f"?client_id={GOOGLE_CLIENT_ID}"
+        f"&response_type=code"
+        f"&redirect_uri={quote(GOOGLE_REDIRECT_URI, safe='')}"
+        f"&scope={quote(scope_str, safe='')}"
+        f"&access_type=offline"
+        f"&prompt=consent"
+        f"&state={state}"
+    )
+
+    return {"login_url": url, "user_id": state}
+
+
+@app.get("/auth/google/callback")
+def google_callback(request: Request):
+    code = request.query_params.get("code")
+    state = request.query_params.get("state", "")
+
+    if not code:
+        return JSONResponse({"error": "No code returned"})
+
+    token_data = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "code": code,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }
+
+    response = requests.post(GOOGLE_TOKEN_URL, data=token_data)
+
+    if response.status_code != 200:
+        return JSONResponse({
+            "error": "Token exchange failed",
+            "details": response.text,
+        })
+
+    token_json = response.json()
+    access_token = token_json.get("access_token")
+
+    if not access_token:
+        return JSONResponse({"error": "No access token received"})
+
+    user_id = state if state else str(uuid.uuid4())
+
+    token_store = {
+        "provider": "google",
+        "access_token": access_token,
+        "refresh_token": token_json.get("refresh_token", ""),
+        "expires_at": (
+            datetime.utcnow() + timedelta(seconds=token_json.get("expires_in", 3600))
+        ).isoformat(),
+    }
+
+    adapter = GoogleCalendarAdapter(user_id)
     adapter.save_token(token_store)
     user_adapters[user_id] = adapter
 
