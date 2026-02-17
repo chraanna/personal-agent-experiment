@@ -46,10 +46,12 @@ SCOPES = [
 # ==================================================
 
 DEFAULT_REPLY = (
-    "Jag tar ansvar för sådant du inte ska behöva lägga tid på "
-    "som att påminna dig om att ringa mamma, hitta luckor i din kalender "
-    "och meddela dig om möten krockar.\n"
-    "Jag är redo för nästa uppgift."
+    "Hej,\n"
+    "Jag tar ansvar för sådant som du inte ska behöva lägga tid på. "
+    "Jag kan påminna dig om saker som att ringa mamma, boka träningstid "
+    "och hämta upp paket. Jag har koll på vilka möten du har, hittar luckor "
+    "i din kalender och säger till om möten krockar.\n\n"
+    "Jag är redo för nästa uppgift!"
 )
 
 # ==================================================
@@ -855,6 +857,13 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
 
     reminders = get_reminders(user_id)
     state = get_reminder_state(user_id)
+
+    # general questions about Shilpi
+    stripped = re.sub(r"^\s*(hej|hallå|tjena|tja|hejsan)\s*,?\s*", "", lower).strip()
+    if stripped in ("vad kan du", "vad kan du?", "vad gör du", "vad gör du?",
+                     "hjälp", "help", "vad kan du göra", "vad kan du göra?",
+                     "vad kan du hjälpa mig med", "vad kan du hjälpa mig med?"):
+        return {"reply": DEFAULT_REPLY, "user_id": user_id}
 
     # manual stop
     if lower in STOP_WORDS:
