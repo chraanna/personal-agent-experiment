@@ -13,8 +13,10 @@ from datetime import datetime, timedelta, time as dtime, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional
 from dotenv import load_dotenv
+import json as _json
 
 LOCAL_TZ = ZoneInfo("Europe/Stockholm")
+REMINDERS_FILE = Path("reminders.json")
 
 from microsoft_calendar_adapter import MicrosoftCalendarAdapter
 from find_slots import find_slots_for_day, DAYS_AHEAD
@@ -77,6 +79,51 @@ def get_adapter(user_id: str) -> Optional[MicrosoftCalendarAdapter]:
         user_adapters[user_id] = adapter
         return adapter
     return None
+
+
+def _save_reminders():
+    """Save all user reminders to disk."""
+    data = {}
+    for uid, rems in user_reminders.items():
+        data[uid] = [
+            {
+                "task": r["task"],
+                "due_time": r["due_time"].isoformat(),
+                "status": r["status"],
+                "trigger_time": r["trigger_time"].isoformat() if r.get("trigger_time") else None,
+                "second_trigger_time": r["second_trigger_time"].isoformat() if r.get("second_trigger_time") else None,
+            }
+            for r in rems
+        ]
+    REMINDERS_FILE.write_text(_json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def _load_reminders():
+    """Load reminders from disk on startup."""
+    if not REMINDERS_FILE.exists():
+        return
+    try:
+        data = _json.loads(REMINDERS_FILE.read_text())
+    except Exception:
+        return
+    now = datetime.now()
+    for uid, rems in data.items():
+        loaded = []
+        for r in rems:
+            due = datetime.fromisoformat(r["due_time"])
+            # Skip reminders that are long past (cleared stage would be >30 min overdue)
+            if r["status"] == "active" and due + timedelta(minutes=30) < now:
+                continue
+            loaded.append({
+                "task": r["task"],
+                "due_time": due,
+                "status": r["status"],
+                "trigger_time": datetime.fromisoformat(r["trigger_time"]) if r.get("trigger_time") else None,
+                "second_trigger_time": datetime.fromisoformat(r["second_trigger_time"]) if r.get("second_trigger_time") else None,
+            })
+        if loaded:
+            user_reminders[uid] = loaded
+    print(f"[startup] Loaded reminders for {len(user_reminders)} users", flush=True)
 
 
 def get_reminders(user_id: str) -> list:
@@ -391,6 +438,8 @@ def process_reminders_for_user(user_id: str):
             if now >= reminder["second_trigger_time"] + timedelta(minutes=15):
                 push_event(user_id, "Uppgiften är inte längre aktiv.")
                 reminders.remove(reminder)
+
+    _save_reminders()
 
 # ==================================================
 # Calendar question handler
@@ -764,6 +813,7 @@ def start_watcher():
                     user_adapters[user_id] = adapter
                     print(f"[startup] Restored adapter for {user_id[:8]}…", flush=True)
     print(f"[startup] {len(user_adapters)} users loaded", flush=True)
+    _load_reminders()
     threading.Thread(target=calendar_watcher, daemon=True).start()
 
 # ==================================================
@@ -881,6 +931,7 @@ async def chat(payload: dict, request: Request):
         is_new_user = True
 
     result = await _handle_chat(message, lower, user_id, request)
+    _save_reminders()
 
     resp = JSONResponse(result)
     if is_new_user:
