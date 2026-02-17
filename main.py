@@ -317,7 +317,8 @@ def format_day_label(d, today) -> str:
         return "idag"
     if d == today + timedelta(days=1):
         return "imorgon"
-    if days_diff <= 7:
+    # Same ISO week → use weekday name, otherwise use date
+    if d.isocalendar()[1] == today.isocalendar()[1] and d.year == today.year:
         return WEEKDAY_NAMES[d.weekday()]
     return f"den {d.day}/{d.month}"
 
