@@ -80,6 +80,11 @@
       user-select: none;
     }
 
+    .choice.selected {
+      background: #111;
+      color: #fff;
+    }
+
     /* Calendar link */
     .calendar-link {
       display: inline-block;
@@ -385,12 +390,24 @@ hålla koll på om något ändras i din kalender"
 
   let OWNER_NAME = "Du";
   let AGENT_NAME = "Shilpi";
+  let PERSONALITY = "neutral";
+
+  // --- Personality pills ---
+
+  document.querySelectorAll(".choices .choice").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".choices .choice").forEach(p => p.classList.remove("selected"));
+      pill.classList.add("selected");
+      PERSONALITY = pill.textContent.toLowerCase();
+    });
+  });
 
   // --- localStorage ---
 
   function saveSettings() {
     localStorage.setItem("shilpi_owner", OWNER_NAME);
     localStorage.setItem("shilpi_agent", AGENT_NAME);
+    localStorage.setItem("shilpi_personality", PERSONALITY);
     localStorage.setItem("shilpi_onboarded", "1");
   }
 
@@ -398,6 +415,7 @@ hålla koll på om något ändras i din kalender"
     if (localStorage.getItem("shilpi_onboarded") === "1") {
       OWNER_NAME = localStorage.getItem("shilpi_owner") || "Du";
       AGENT_NAME = localStorage.getItem("shilpi_agent") || "Shilpi";
+      PERSONALITY = localStorage.getItem("shilpi_personality") || "neutral";
       enterMainView();
       return true;
     }
@@ -496,7 +514,7 @@ hålla koll på om något ändras i din kalender"
       const res = await fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message: text, personality: PERSONALITY })
       });
 
       const data = await res.json();

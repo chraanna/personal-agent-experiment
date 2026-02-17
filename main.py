@@ -46,7 +46,7 @@ SCOPES = [
 ]
 
 # ==================================================
-# Copy
+# Copy & Personality
 # ==================================================
 
 DEFAULT_REPLY = (
@@ -58,6 +58,55 @@ DEFAULT_REPLY = (
     "Jag är redo för nästa uppgift!"
 )
 
+PERSONALITIES = {
+    "realistisk": {
+        "greeting": "Jag är redo. Säg till vad du behöver.",
+        "confirm_prefix": "Noterat.",
+        "nudge": "Dags:",
+        "done": "Klart, den är borttagen.",
+    },
+    "humor": {
+        "greeting": "Jag är redo att ta hand om allt tråkigt så du slipper. Kör på!",
+        "confirm_prefix": "Lugnt, jag har koll!",
+        "nudge": "Pling! Dags att",
+        "done": "Bort med den! Fixat.",
+    },
+    "lugn": {
+        "greeting": "Jag finns här när du behöver mig. Ta det lugnt, jag har koll.",
+        "confirm_prefix": "Absolut, det ordnar jag.",
+        "nudge": "En liten påminnelse — det är dags att",
+        "done": "Uppgiften är avslutad. Allt lugnt.",
+    },
+    "närvarande": {
+        "greeting": "Jag är här. Vad vill du att jag hjälper dig med?",
+        "confirm_prefix": "Jag hör dig, det fixar jag.",
+        "nudge": "Hej! Nu är det dags att",
+        "done": "Uppgiften är klar. Jag finns här om du behöver mer.",
+    },
+    "minimal": {
+        "greeting": "Redo.",
+        "confirm_prefix": "Ok.",
+        "nudge": "Dags:",
+        "done": "Borttagen.",
+    },
+    "varm": {
+        "greeting": "Vad fint att du är här! Jag tar hand om det du behöver, bara säg till.",
+        "confirm_prefix": "Såklart, det fixar jag åt dig!",
+        "nudge": "Hej! Ville bara påminna dig om att",
+        "done": "Uppgiften är klar — bra jobbat!",
+    },
+    "neutral": {
+        "greeting": "Jag är redo för nästa uppgift!",
+        "confirm_prefix": "Jag påminner dig",
+        "nudge": "Nu är det dags att",
+        "done": "Uppgiften är inte längre aktiv.",
+    },
+}
+
+
+def get_personality(personality_key: str) -> dict:
+    return PERSONALITIES.get(personality_key, PERSONALITIES["neutral"])
+
 # ==================================================
 # Per-user state
 # ==================================================
@@ -66,6 +115,7 @@ user_adapters: dict[str, MicrosoftCalendarAdapter] = {}
 user_reminders: dict[str, list] = {}
 user_reminder_state: dict[str, dict] = {}
 user_events: dict[str, list[str]] = {}
+user_personalities: dict[str, str] = {}
 
 # Per-user watcher state
 user_calendar_snapshots: dict[str, dict] = {}
@@ -423,22 +473,23 @@ def format_collected_reminders(task: str, collected: list) -> str:
 def process_reminders_for_user(user_id: str):
     now = datetime.now()
     reminders = get_reminders(user_id)
+    p = get_personality(user_personalities.get(user_id, "neutral"))
 
     for reminder in reminders[:]:
         if reminder["status"] == "active" and now >= reminder["due_time"]:
-            push_event(user_id, f"Nu är det dags att {reminder['task']}.")
+            push_event(user_id, f"{p['nudge']} {reminder['task']}.")
             reminder["status"] = "triggered_once"
             reminder["trigger_time"] = now
 
         elif reminder["status"] == "triggered_once":
             if now >= reminder["trigger_time"] + timedelta(minutes=15):
-                push_event(user_id, f"Jag påminner igen. Det är dags att {reminder['task']}.")
+                push_event(user_id, f"{p['nudge']} {reminder['task']}.")
                 reminder["status"] = "reminded_twice"
                 reminder["second_trigger_time"] = now
 
         elif reminder["status"] == "reminded_twice":
             if now >= reminder["second_trigger_time"] + timedelta(minutes=15):
-                push_event(user_id, "Uppgiften är inte längre aktiv.")
+                push_event(user_id, p["done"])
                 reminders.remove(reminder)
 
     _save_reminders()
@@ -932,6 +983,10 @@ async def chat(payload: dict, request: Request):
         user_id = str(uuid.uuid4())
         is_new_user = True
 
+    personality = payload.get("personality", "").lower()
+    if personality:
+        user_personalities[user_id] = personality
+
     result = await _handle_chat(message, lower, user_id, request)
     _save_reminders()
 
@@ -945,6 +1000,7 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
 
     reminders = get_reminders(user_id)
     state = get_reminder_state(user_id)
+    p = get_personality(user_personalities.get(user_id, "neutral"))
 
     # general questions about Shilpi
     stripped = re.sub(r"^\s*(hej|hallå|tjena|tja|hejsan)\s*,?\s*", "", lower).strip()
@@ -957,8 +1013,8 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
     if lower in STOP_WORDS:
         if reminders:
             reminders.clear()
-            return {"reply": "Uppgiften är inte längre aktiv.", "user_id": user_id}
-        return {"reply": DEFAULT_REPLY, "user_id": user_id}
+            return {"reply": p["done"], "user_id": user_id}
+        return {"reply": p["greeting"], "user_id": user_id}
 
     # "också" — add to existing reminders for same task
     if "också" in lower and ("påminn" in lower) and reminders:
@@ -1016,7 +1072,7 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
                     state["waiting_for_time"] = False
                     return {"reply": format_collected_reminders(task, collected), "user_id": user_id}
                 state["waiting_for_time"] = False
-                return {"reply": DEFAULT_REPLY, "user_id": user_id}
+                return {"reply": p["greeting"], "user_id": user_id}
 
             # Try to parse a day+time pair
             input_text = normalize_input(lower)
@@ -1216,7 +1272,7 @@ async def _handle_chat(message: str, lower: str, user_id: str, request: Request)
             "user_id": user_id,
         }
 
-    return {"reply": DEFAULT_REPLY, "user_id": user_id}
+    return {"reply": p["greeting"], "user_id": user_id}
 
 
 @app.get("/events")
