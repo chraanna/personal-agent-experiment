@@ -44,25 +44,58 @@
 
     /* ===== Onboarding ===== */
 
+    #onboarding {
+      border: none;
+      padding: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+    }
+
     .frame {
       border: none;
       border-radius: 0;
       padding: 0;
     }
 
-    .section {
-      margin-bottom: 40px;
+    .intro-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink);
+      font-weight: 300;
+      letter-spacing: 0.01em;
+      margin: 0 0 2px;
       opacity: 0;
-      transform: translateY(12px);
-      animation: fadeUp 0.6s ease forwards;
+      transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards;
+      animation-delay: 0.1s;
     }
 
-    .section:nth-child(1) { animation-delay: 0.1s; }
-    .section:nth-child(2) { animation-delay: 0.3s; }
-    .section:nth-child(3) { animation-delay: 0.5s; }
-    .section:nth-child(4) { animation-delay: 0.7s; }
-    .section:nth-child(5) { animation-delay: 0.9s; }
-    .cta { animation-delay: 1.1s; }
+    .intro-text strong {
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.35);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 14px;
+      padding: 14px 16px;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards;
+    }
+
+    .card:nth-of-type(1) { animation-delay: 0.2s; }
+    .card:nth-of-type(2) { animation-delay: 0.35s; }
+    .card:nth-of-type(3) { animation-delay: 0.5s; }
+    .card:nth-of-type(4) { animation-delay: 0.65s; }
 
     @keyframes fadeUp {
       to {
@@ -71,32 +104,34 @@
       }
     }
 
-    p {
-      margin: 0 0 12px;
-      font-size: 15px;
-      line-height: 1.65;
-      color: var(--ink);
-      font-weight: 300;
-      letter-spacing: 0.01em;
-    }
-
-    p:first-child {
-      font-size: 22px;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      margin-bottom: 16px;
+    .card-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin: 0 0 8px;
     }
 
     .muted {
       color: var(--ink-muted);
       font-size: 13px;
+      margin: 0;
+    }
+
+    p {
+      margin: 0 0 10px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--ink);
+      font-weight: 300;
     }
 
     input {
       width: 100%;
       font-size: 15px;
       font-weight: 300;
-      padding: 10px 0;
+      padding: 4px 0;
       border: none;
       border-bottom: 1px solid var(--sand-light);
       outline: none;
@@ -118,18 +153,20 @@
     .choices {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
+      gap: 8px;
+      margin-top: 10px;
     }
 
     .choice {
-      padding: 8px 18px;
-      font-size: 13px;
+      padding: 6px 14px;
+      font-size: 12px;
       font-weight: 400;
       letter-spacing: 0.02em;
-      border: 1px solid var(--sand-light);
+      border: 1px solid rgba(255, 255, 255, 0.6);
       border-radius: 999px;
-      background: var(--white);
+      background: rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       color: var(--ink-soft);
       cursor: pointer;
       user-select: none;
@@ -139,6 +176,7 @@
     .choice:hover {
       border-color: var(--sand);
       color: var(--ink);
+      background: rgba(255, 255, 255, 0.5);
     }
 
     .choice.selected {
@@ -150,8 +188,7 @@
     /* Calendar link */
     .calendar-link {
       display: inline-block;
-      margin-top: 4px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 400;
       color: var(--ink-soft);
       text-decoration: none;
@@ -166,17 +203,18 @@
 
     /* CTA */
     .cta {
-      margin-top: 48px;
-      margin-bottom: 32px;
+      margin-top: 4px;
+      margin-bottom: 20px;
       display: flex;
       justify-content: center;
       opacity: 0;
-      transform: translateY(12px);
-      animation: fadeUp 0.6s ease forwards;
+      transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards;
+      animation-delay: 0.8s;
     }
 
     #startBtn {
-      padding: 12px 40px;
+      padding: 12px 44px;
       font-size: 14px;
       font-weight: 500;
       letter-spacing: 0.04em;
@@ -184,6 +222,7 @@
       color: var(--sand-bg);
       border: none;
       border-radius: 999px;
+      cursor: pointer;
       transition: all 0.3s ease;
     }
 
@@ -378,30 +417,25 @@
 <div class="container">
 
   <!-- ONBOARDING -->
-  <div id="onboarding" class="frame">
+  <div id="onboarding">
 
-    <div class="section">
-      <p>Hej.</p>
-      <p>Jag är din personliga assistent.</p>
-      <p>Jag tar ansvar för sådant du inte ska behöva lägga tid på —
-        påminnelser, kalenderkoll och möten som krockar.</p>
+    <p class="intro-text">
+      <strong>Hej,</strong> jag är din personliga assistent. Jag tar ansvar för sådant du inte ska behöva lägga tid på — påminnelser, kalenderkoll och möten som krockar.
+    </p>
+
+    <div class="card">
+      <div class="card-label">Ditt namn</div>
+      <input id="userName" placeholder="Skriv ditt namn" />
     </div>
 
-    <div class="section">
-      <p>Vad heter du?</p>
-      <input id="userName" placeholder="Ditt namn" />
-    </div>
-
-    <div class="section">
-      <p>Jag heter Shilpi.</p>
-      <p class="muted">Ge mig gärna ett annat namn om du vill.</p>
+    <div class="card">
+      <div class="card-label">Jag heter Shilpi</div>
+      <p class="muted">Ge mig gärna ett annat namn om du vill</p>
       <input id="agentName" value="Shilpi" />
     </div>
 
-    <div class="section">
-      <p>Vilken ton passar dig?</p>
-      <p class="muted">Välj en personlighet.</p>
-
+    <div class="card">
+      <div class="card-label">Välj min personlighet</div>
       <div class="choices">
         <div class="choice">Realistisk</div>
         <div class="choice">Humor</div>
@@ -413,7 +447,8 @@
       </div>
     </div>
 
-    <div class="section">
+    <div class="card">
+      <div class="card-label">Kalender</div>
       <a href="#" class="calendar-link" id="calendarLink">Koppla kalender</a>
     </div>
 
