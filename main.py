@@ -6,7 +6,7 @@ import re
 import requests
 
 from fastapi import FastAPI, Request, Cookie
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
 from pathlib import Path
 from datetime import datetime, timedelta, time as dtime, timezone
 from zoneinfo import ZoneInfo
@@ -1122,6 +1122,21 @@ async def get_events(request: Request):
 @app.get("/", response_class=HTMLResponse)
 def ui():
     return Path("index.html").read_text(encoding="utf-8")
+
+
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse("manifest.json", media_type="application/manifest+json")
+
+
+@app.get("/icon-192.png")
+def icon_192():
+    return FileResponse("icon-192.png", media_type="image/png")
+
+
+@app.get("/icon-512.png")
+def icon_512():
+    return FileResponse("icon-512.png", media_type="image/png")
 
 
 if __name__ == "__main__":
