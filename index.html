@@ -5,101 +5,191 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#f8f6f2" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <title>Shilpi</title>
 
   <style>
+    :root {
+      --sand: #c8b898;
+      --sand-light: #e8dfd1;
+      --sand-bg: #f8f6f2;
+      --ink: #2a2a2a;
+      --ink-soft: #6b6560;
+      --ink-muted: #a09890;
+      --white: #ffffff;
+    }
+
     body {
       margin: 0;
-      background: #ffffff;
-      color: #111;
-      font-family: -apple-system, BlinkMacSystemFont,
-        "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: var(--sand-bg);
+      color: var(--ink);
+      font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont,
+        "Helvetica Neue", Helvetica, Arial, sans-serif;
       min-height: 100vh;
       display: flex;
       justify-content: center;
+      -webkit-font-smoothing: antialiased;
     }
 
     .container {
       width: 100%;
-      max-width: 520px;
-      padding: 0 20px;
+      max-width: 480px;
+      padding: 0 28px;
       display: flex;
       flex-direction: column;
       justify-content: center;
     }
 
-    p {
-      margin: 0 0 16px;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .muted {
-      color: #777;
-    }
+    /* ===== Onboarding ===== */
 
     .frame {
-      border: 1px solid #eee;
-      border-radius: 12px;
-      padding: 20px 18px 18px;
+      border: none;
+      border-radius: 0;
+      padding: 0;
     }
 
     .section {
-      margin-bottom: 26px;
+      margin-bottom: 40px;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.6s ease forwards;
+    }
+
+    .section:nth-child(1) { animation-delay: 0.1s; }
+    .section:nth-child(2) { animation-delay: 0.3s; }
+    .section:nth-child(3) { animation-delay: 0.5s; }
+    .section:nth-child(4) { animation-delay: 0.7s; }
+    .section:nth-child(5) { animation-delay: 0.9s; }
+    .cta { animation-delay: 1.1s; }
+
+    @keyframes fadeUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    p {
+      margin: 0 0 12px;
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--ink);
+      font-weight: 300;
+      letter-spacing: 0.01em;
+    }
+
+    p:first-child {
+      font-size: 22px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      margin-bottom: 16px;
+    }
+
+    .muted {
+      color: var(--ink-muted);
+      font-size: 13px;
     }
 
     input {
       width: 100%;
-      font-size: 14px;
-      padding: 8px 2px;
+      font-size: 15px;
+      font-weight: 300;
+      padding: 10px 0;
       border: none;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--sand-light);
       outline: none;
       background: transparent;
+      color: var(--ink);
+      transition: border-color 0.3s ease;
+      font-family: inherit;
+    }
+
+    input:focus {
+      border-bottom-color: var(--sand);
+    }
+
+    input::placeholder {
+      color: var(--ink-muted);
     }
 
     /* Personality pills */
     .choices {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 10px;
+      gap: 10px;
+      margin-top: 14px;
     }
 
     .choice {
-      padding: 6px 12px;
+      padding: 8px 18px;
       font-size: 13px;
-      border: 1px solid #444;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      border: 1px solid var(--sand-light);
       border-radius: 999px;
-      background: #fff;
-      color: #111;
+      background: var(--white);
+      color: var(--ink-soft);
       cursor: pointer;
       user-select: none;
+      transition: all 0.25s ease;
+    }
+
+    .choice:hover {
+      border-color: var(--sand);
+      color: var(--ink);
     }
 
     .choice.selected {
-      background: #111;
-      color: #fff;
+      background: var(--sand);
+      border-color: var(--sand);
+      color: var(--white);
     }
 
     /* Calendar link */
     .calendar-link {
       display: inline-block;
-      margin-top: 8px;
+      margin-top: 4px;
       font-size: 14px;
-      color: #111;
+      font-weight: 400;
+      color: var(--ink-soft);
       text-decoration: none;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--sand-light);
+      transition: all 0.25s ease;
+    }
+
+    .calendar-link:hover {
+      color: var(--ink);
+      border-bottom-color: var(--sand);
     }
 
     /* CTA */
     .cta {
-      margin-top: 32px;
+      margin-top: 48px;
+      margin-bottom: 32px;
       display: flex;
       justify-content: center;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.6s ease forwards;
+    }
+
+    #startBtn {
+      padding: 12px 40px;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      background: var(--ink);
+      color: var(--sand-bg);
+      border: none;
+      border-radius: 999px;
+      transition: all 0.3s ease;
+    }
+
+    #startBtn:hover {
+      background: var(--sand);
+      color: var(--white);
     }
 
     /* ===== Auth bar ===== */
@@ -108,21 +198,22 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 0;
+      padding: 12px 0;
       font-size: 13px;
-      color: #777;
+      color: var(--ink-muted);
       margin-bottom: 8px;
     }
 
     .auth-bar a {
-      color: #111;
+      color: var(--ink-soft);
       text-decoration: none;
-      font-weight: 500;
+      font-weight: 400;
       cursor: pointer;
+      transition: color 0.2s ease;
     }
 
     .auth-bar a:hover {
-      text-decoration: underline;
+      color: var(--ink);
     }
 
     .auth-status {
@@ -132,19 +223,20 @@
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: #ccc;
+      background: var(--sand-light);
+      transition: background 0.3s ease;
     }
 
     .status-dot.connected {
-      background: #34c759;
+      background: #8fae83;
     }
 
     .next-meeting {
       font-size: 12px;
-      color: #999;
+      color: var(--ink-muted);
     }
 
     /* ===== Main view ===== */
@@ -156,23 +248,30 @@
       resize: none;
       background: transparent;
       font-size: 14px;
-      line-height: 1.45;
+      font-weight: 300;
+      line-height: 1.55;
       min-height: 72px;
       font-family: inherit;
+      color: var(--ink);
     }
 
     textarea::placeholder {
       font-size: 12px;
-      line-height: 1.4;
-      color: #999;
+      line-height: 1.5;
+      color: var(--ink-muted);
       white-space: pre-line;
     }
 
     .input-frame {
-      border: 1px solid #e0e0e0;
-      border-radius: 10px;
-      padding: 12px;
-      margin-top: 16px;
+      border: 1px solid var(--sand-light);
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 20px;
+      transition: border-color 0.3s ease;
+    }
+
+    .input-frame:focus-within {
+      border-color: var(--sand);
     }
 
     .send-row {
@@ -185,17 +284,22 @@
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: #111;
+      background: var(--ink);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      transition: background 0.25s ease;
+    }
+
+    .send-btn:hover {
+      background: var(--sand);
     }
 
     .send-btn svg {
       width: 16px;
       height: 16px;
-      stroke: #fff;
+      stroke: var(--white);
       stroke-width: 1.5;
       fill: none;
     }
@@ -203,10 +307,11 @@
     /* ===== Logg ===== */
 
     #log {
-      margin-top: 16px;
+      margin-top: 20px;
       white-space: pre-wrap;
-      font-size: 13px;
-      line-height: 1.45;
+      font-size: 14px;
+      font-weight: 300;
+      line-height: 1.55;
     }
 
     .entry {
@@ -214,48 +319,53 @@
     }
 
     .name {
-      font-size: 12px;
-      color: #999;
-      margin-bottom: 2px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: 3px;
     }
 
     .log-owner {
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     .log-agent {
-      margin-top: 14px;
-      margin-bottom: 10px;
-      color: #555;
+      margin-top: 16px;
+      margin-bottom: 12px;
+      color: var(--ink-soft);
     }
 
     .log-events {
-      margin-top: 14px;
-      color: #444;
+      margin-top: 16px;
+      color: var(--ink-soft);
     }
 
     /* Typing indicator */
     .log-typing {
-      margin-top: 14px;
-      margin-bottom: 10px;
-      color: #999;
+      margin-top: 16px;
+      margin-bottom: 12px;
+      color: var(--ink-muted);
     }
 
     .typing-dots span {
-      animation: blink 1.4s infinite both;
+      animation: pulse 1.4s infinite both;
     }
     .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
     .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 
-    @keyframes blink {
+    @keyframes pulse {
       0%, 80%, 100% { opacity: 0.2; }
       40% { opacity: 1; }
     }
 
     .signature {
-      margin-top: 12px;
+      margin-top: 16px;
       font-size: 13px;
-      color: #777;
+      font-weight: 300;
+      color: var(--ink-muted);
+      letter-spacing: 0.02em;
     }
 
     .hidden {
@@ -273,29 +383,24 @@
     <div class="section">
       <p>Hej.</p>
       <p>Jag är din personliga assistent.</p>
-      <p>Jag tar ansvar för sådant du inte ska behöva lägga tid på.</p>
-      <p>
-        Jag kan påminna dig om saker du behöver göra<br>
-        som att ringa mamma, köpa mjölk eller boka träningspass.<br>
-        Jag kan hålla koll på lediga luckor i din kalender<br>
-        och berätta om möten krockar.
-      </p>
+      <p>Jag tar ansvar för sådant du inte ska behöva lägga tid på —
+        påminnelser, kalenderkoll och möten som krockar.</p>
     </div>
 
     <div class="section">
       <p>Vad heter du?</p>
-      <input id="userName" />
+      <input id="userName" placeholder="Ditt namn" />
     </div>
 
     <div class="section">
       <p>Jag heter Shilpi.</p>
-      <p class="muted">Om du vill kan du ge mig ett annat namn.</p>
+      <p class="muted">Ge mig gärna ett annat namn om du vill.</p>
       <input id="agentName" value="Shilpi" />
     </div>
 
     <div class="section">
-      <p>Alla assistenter är olika.</p>
-      <p class="muted">Här kan du ge mig en personlighet som passar dig.</p>
+      <p>Vilken ton passar dig?</p>
+      <p class="muted">Välj en personlighet.</p>
 
       <div class="choices">
         <div class="choice">Realistisk</div>
@@ -309,11 +414,11 @@
     </div>
 
     <div class="section">
-      <a href="#" class="calendar-link" id="calendarLink">Ge tillgång till kalender</a>
+      <a href="#" class="calendar-link" id="calendarLink">Koppla kalender</a>
     </div>
 
     <div class="cta">
-      <div class="choice" id="startBtn">Kom igång</div>
+      <div id="startBtn">Kom igång</div>
     </div>
 
   </div>
