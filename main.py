@@ -753,6 +753,17 @@ def calendar_watcher():
 
 @app.on_event("startup")
 def start_watcher():
+    # Restore adapters from saved tokens on startup
+    tokens_dir = Path("tokens")
+    if tokens_dir.exists():
+        for token_file in tokens_dir.glob("*.json"):
+            user_id = token_file.stem
+            if user_id not in user_adapters:
+                adapter = MicrosoftCalendarAdapter(user_id)
+                if adapter.is_connected():
+                    user_adapters[user_id] = adapter
+                    print(f"[startup] Restored adapter for {user_id[:8]}…", flush=True)
+    print(f"[startup] {len(user_adapters)} users loaded", flush=True)
     threading.Thread(target=calendar_watcher, daemon=True).start()
 
 # ==================================================
