@@ -65,24 +65,78 @@
       padding: 0;
     }
 
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 16px;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--sand) 0%, var(--sand-light) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(200, 184, 152, 0.3);
+    }
+
+    .logo-mark svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+
+    .logo-name {
+      font-size: 20px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .logo-subtitle {
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-top: 2px;
+    }
+
+    .intro-greeting {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 0 0 4px;
+      padding: 0;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fadeUp 0.5s ease forwards;
+      animation-delay: 0.05s;
+    }
+
     .intro-text {
       font-size: 14px;
       line-height: 1.6;
-      color: var(--ink);
+      color: var(--ink-soft);
       font-weight: 300;
       letter-spacing: 0.01em;
-      margin: 0 0 2px;
-      padding: 0 2px;
+      margin: 0 0 6px;
+      padding: 0;
       opacity: 0;
       transform: translateY(8px);
       animation: fadeUp 0.5s ease forwards;
       animation-delay: 0.1s;
-    }
-
-    .intro-text strong {
-      font-size: 18px;
-      font-weight: 400;
-      letter-spacing: -0.01em;
     }
 
     .card {
@@ -429,8 +483,21 @@
   <!-- ONBOARDING -->
   <div id="onboarding">
 
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z" stroke="#fff" stroke-width="1.5" fill="none"/>
+          <circle cx="12" cy="12" r="3" fill="#fff" opacity="0.9"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-name">Shilpi</span>
+        <span class="logo-subtitle">agent</span>
+      </div>
+    </div>
+    <div class="intro-greeting">Hej,</div>
     <p class="intro-text">
-      <strong>Hej,</strong> jag är din personliga assistent. Jag tar ansvar för sådant du inte ska behöva lägga tid på — påminnelser, kalenderkoll och möten som krockar.
+      Jag är din personliga assistent. Jag tar ansvar för sådant du inte ska behöva lägga tid på — påminnelser, kalenderkoll och möten som krockar.
     </p>
 
     <div class="card">
