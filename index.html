@@ -11,6 +11,10 @@
   <title>Shilpi</title>
 
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     :root {
       --sand: #c8b898;
       --sand-light: #e8dfd1;
@@ -36,7 +40,7 @@
     .container {
       width: 100%;
       max-width: 480px;
-      padding: 0 28px;
+      padding: 0 24px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -68,6 +72,7 @@
       font-weight: 300;
       letter-spacing: 0.01em;
       margin: 0 0 2px;
+      padding: 0 2px;
       opacity: 0;
       transform: translateY(8px);
       animation: fadeUp 0.5s ease forwards;
