@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="theme-color" content="#f8f6f2" />
@@ -31,38 +31,34 @@
       color: var(--ink);
       font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont,
         "Helvetica Neue", Helvetica, Arial, sans-serif;
-      min-height: 100vh;
+      height: 100vh;
+      height: 100dvh;
       display: flex;
       justify-content: center;
       -webkit-font-smoothing: antialiased;
+      overflow: hidden;
     }
 
     .container {
       width: 100%;
       max-width: 480px;
-      padding: 0 24px;
+      height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      position: relative;
     }
 
     /* ===== Onboarding ===== */
 
     #onboarding {
       border: none;
-      padding: 0;
-      min-height: 100vh;
-      min-height: 100dvh;
+      padding: 0 24px;
+      height: 100%;
       display: flex;
       flex-direction: column;
       justify-content: center;
       gap: 8px;
-    }
-
-    .frame {
-      border: none;
-      border-radius: 0;
-      padding: 0;
     }
 
     .logo {
@@ -295,161 +291,144 @@
       color: var(--white);
     }
 
-    /* ===== Auth bar ===== */
+    /* ===== Chat header ===== */
 
-    .auth-bar {
+    .chat-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 0;
-      font-size: 13px;
-      color: var(--ink-muted);
-      margin-bottom: 8px;
+      padding: 12px 24px;
+      border-bottom: 1px solid rgba(200, 184, 152, 0.15);
+      flex-shrink: 0;
     }
 
-    .auth-bar a {
-      color: var(--ink-soft);
-      text-decoration: none;
-      font-weight: 400;
-      cursor: pointer;
-      transition: color 0.2s ease;
-    }
-
-    .auth-bar a:hover {
-      color: var(--ink);
-    }
-
-    .auth-status {
+    .chat-header-left {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
-    .status-dot {
-      width: 7px;
-      height: 7px;
+    .chat-header .logo-mark {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+    }
+
+    .chat-header .logo-mark svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .chat-header-name {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--ink-soft);
+      letter-spacing: -0.01em;
+    }
+
+    .chat-header-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+
+    .chat-header-status .status-dot {
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--sand-light);
       transition: background 0.3s ease;
     }
 
-    .status-dot.connected {
+    .chat-header-status .status-dot.connected {
       background: #8fae83;
     }
 
-    .next-meeting {
-      font-size: 12px;
-      color: var(--ink-muted);
-    }
-
-    /* ===== Main view ===== */
-
-    textarea {
-      width: 100%;
-      border: none;
-      outline: none;
-      resize: none;
-      background: transparent;
-      font-size: 14px;
-      font-weight: 300;
-      line-height: 1.55;
-      min-height: 72px;
-      font-family: inherit;
-      color: var(--ink);
-    }
-
-    textarea::placeholder {
-      font-size: 12px;
-      line-height: 1.5;
-      color: var(--ink-muted);
-      white-space: pre-line;
-    }
-
-    .input-frame {
-      border: 1px solid var(--sand-light);
-      border-radius: 12px;
-      padding: 14px;
-      margin-top: 20px;
-      transition: border-color 0.3s ease;
-    }
-
-    .input-frame:focus-within {
-      border-color: var(--sand);
-    }
-
-    .send-row {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 8px;
-    }
-
-    .send-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--ink);
+    .menu-btn {
+      width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: background 0.25s ease;
+      border-radius: 8px;
+      transition: background 0.2s ease;
     }
 
-    .send-btn:hover {
-      background: var(--sand);
+    .menu-btn:hover {
+      background: rgba(200, 184, 152, 0.15);
     }
 
-    .send-btn svg {
-      width: 16px;
-      height: 16px;
-      stroke: var(--white);
+    .menu-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--ink-muted);
       stroke-width: 1.5;
       fill: none;
     }
 
-    /* ===== Logg ===== */
+    /* ===== Chat messages area ===== */
 
-    #log {
-      margin-top: 20px;
-      white-space: pre-wrap;
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .chat-messages-spacer {
+      flex: 1;
+    }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 16px;
       font-size: 14px;
       font-weight: 300;
-      line-height: 1.55;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      animation: fadeUp 0.25s ease forwards;
     }
 
-    .entry {
-      margin: 0;
+    .msg-user {
+      align-self: flex-end;
+      background: var(--ink);
+      color: var(--sand-bg);
+      border-bottom-right-radius: 4px;
     }
 
-    .name {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--ink-muted);
-      margin-bottom: 3px;
-    }
-
-    .log-owner {
-      margin-bottom: 12px;
-    }
-
-    .log-agent {
-      margin-top: 16px;
-      margin-bottom: 12px;
+    .msg-agent {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
       color: var(--ink-soft);
+      border-bottom-left-radius: 4px;
     }
 
-    .log-events {
-      margin-top: 16px;
+    .msg-event {
+      align-self: flex-start;
+      background: rgba(200, 184, 152, 0.15);
       color: var(--ink-soft);
+      font-size: 13px;
+      border-radius: 12px;
     }
 
-    /* Typing indicator */
-    .log-typing {
-      margin-top: 16px;
-      margin-bottom: 12px;
+    .msg-typing {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
       color: var(--ink-muted);
+      border-bottom-left-radius: 4px;
     }
 
     .typing-dots span {
@@ -463,12 +442,224 @@
       40% { opacity: 1; }
     }
 
-    .signature {
-      margin-top: 16px;
+    /* ===== Chat input bar ===== */
+
+    .chat-input-bar {
+      flex-shrink: 0;
+      padding: 8px 24px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(200, 184, 152, 0.15);
+    }
+
+    .chat-input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 22px;
+      padding: 6px 6px 6px 16px;
+      transition: border-color 0.3s ease;
+    }
+
+    .chat-input-row:focus-within {
+      border-color: var(--sand);
+    }
+
+    .chat-input-row textarea {
+      flex: 1;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 300;
+      line-height: 1.45;
+      min-height: 24px;
+      max-height: 100px;
+      font-family: inherit;
+      color: var(--ink);
+      padding: 4px 0;
+    }
+
+    .chat-input-row textarea::placeholder {
+      color: var(--ink-muted);
+      font-size: 14px;
+    }
+
+    .send-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.25s ease;
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover {
+      background: var(--sand);
+    }
+
+    .send-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: var(--white);
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    /* ===== About / Premium panel ===== */
+
+    .about-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--sand-bg);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+
+    .about-panel.open {
+      transform: translateX(0);
+    }
+
+    .about-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 24px;
+      border-bottom: 1px solid rgba(200, 184, 152, 0.15);
+      flex-shrink: 0;
+    }
+
+    .about-back {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.2s ease;
+      margin-right: 8px;
+    }
+
+    .about-back:hover {
+      background: rgba(200, 184, 152, 0.15);
+    }
+
+    .about-back svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--ink-muted);
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    .about-title {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--ink-soft);
+    }
+
+    .about-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .about-section {
+      margin-bottom: 24px;
+    }
+
+    .about-section-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin: 0 0 10px;
+    }
+
+    .about-section p {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      font-weight: 300;
+      margin: 0 0 8px;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .feature-list li {
       font-size: 13px;
       font-weight: 300;
-      color: var(--ink-muted);
-      letter-spacing: 0.02em;
+      color: var(--ink-soft);
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(200, 184, 152, 0.12);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-list li:last-child {
+      border-bottom: none;
+    }
+
+    .feature-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--sand);
+      flex-shrink: 0;
+    }
+
+    .feature-dot.premium {
+      background: var(--ink-soft);
+    }
+
+    .about-card {
+      background: rgba(255, 255, 255, 0.35);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .about-link {
+      display: block;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--ink-soft);
+      text-decoration: none;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(200, 184, 152, 0.12);
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+
+    .about-link:last-child {
+      border-bottom: none;
+    }
+
+    .about-link:hover {
+      color: var(--ink);
     }
 
     .hidden {
@@ -539,52 +730,110 @@
 
   </div>
 
-  <!-- MAIN VIEW -->
+  <!-- MAIN VIEW (Chat) -->
   <div id="mainView" class="hidden">
 
-    <!-- Auth bar -->
-    <div class="auth-bar">
-      <div class="auth-status">
-        <div class="status-dot" id="statusDot"></div>
-        <span id="authLabel">Kalender: ej ansluten</span>
-      </div>
-      <div>
-        <a id="loginLink" href="#">Logga in</a>
-        <span class="next-meeting" id="nextMeeting"></span>
-      </div>
-    </div>
-
-    <div class="frame">
-      <p id="greeting"></p>
-
-      <p>
-        Vad vill du att jag tar ansvar för?<br>
-        Skriv nedan så påminner jag när det är dags.
-      </p>
-
-      <div class="input-frame">
-        <textarea
-          id="messageInput"
-          placeholder="påminna dig om att ringa mamma
-hitta ledig tid när möten behöver planeras om
-hålla koll på om något ändras i din kalender"
-        ></textarea>
-
-        <div class="send-row">
-          <div class="send-btn" id="sendBtn" aria-label="Skicka">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 19V5" />
-              <path d="M6 11l6-6 6 6" />
-            </svg>
+    <!-- Chat header -->
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z" stroke="#fff" stroke-width="1.5" fill="none"/>
+            <circle cx="12" cy="12" r="3" fill="#fff" opacity="0.9"/>
+          </svg>
+        </div>
+        <div>
+          <div class="chat-header-name" id="chatHeaderName">Shilpi</div>
+          <div class="chat-header-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="authLabel">Kalender: ej ansluten</span>
           </div>
         </div>
       </div>
-
-      <!-- Gemensam logg -->
-      <div id="log"></div>
-
-      <div class="signature" id="signature"></div>
+      <div class="menu-btn" id="menuBtn">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+          <circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
     </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-messages-spacer"></div>
+      <div class="msg msg-agent" id="welcomeMsg"></div>
+    </div>
+
+    <!-- Input bar at bottom -->
+    <div class="chat-input-bar">
+      <div class="chat-input-row">
+        <textarea
+          id="messageInput"
+          rows="1"
+          placeholder="Skriv ett meddelande..."
+        ></textarea>
+        <div class="send-btn" id="sendBtn" aria-label="Skicka">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 19V5" />
+            <path d="M6 11l6-6 6 6" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- About / Premium panel -->
+    <div class="about-panel" id="aboutPanel">
+      <div class="about-header">
+        <div class="about-back" id="aboutBack">
+          <svg viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </div>
+        <div class="about-title">Om Shilpi</div>
+      </div>
+      <div class="about-content">
+
+        <div class="about-section">
+          <div class="about-section-title">Vad kan Shilpi?</div>
+          <ul class="feature-list">
+            <li><span class="feature-dot"></span>Påminnelser — skriv vad du vill bli påmind om</li>
+            <li><span class="feature-dot"></span>Kalenderkoll — se dagens möten och hitta luckor</li>
+            <li><span class="feature-dot"></span>Möteskrock — varnar om något krockar</li>
+            <li><span class="feature-dot premium"></span>AI-chatt — förstår dig oavsett hur du skriver</li>
+            <li><span class="feature-dot premium"></span>Smart kalenderanalys</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title">Kalender</div>
+          <div class="about-card">
+            <a href="#" class="about-link" id="aboutCalendarMs">Koppla Microsoft-kalender</a>
+            <a href="#" class="about-link" id="aboutCalendarGoogle">Koppla Google-kalender</a>
+          </div>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title">Vanliga frågor</div>
+          <div class="about-card">
+            <div class="about-link" style="cursor:default; color: var(--ink-soft);">
+              <strong style="font-weight:400;">Sparar Shilpi min data?</strong><br>
+              <span style="color: var(--ink-muted); font-size: 12px;">Nej. Shilpi läser din kalender i realtid men sparar ingen mötesdata permanent.</span>
+            </div>
+            <div class="about-link" style="cursor:default; color: var(--ink-soft);">
+              <strong style="font-weight:400;">Behöver IT godkänna?</strong><br>
+              <span style="color: var(--ink-muted); font-size: 12px;">Nej. Du kopplar ditt eget konto — inget behöver godkännas av IT.</span>
+            </div>
+            <div class="about-link" style="cursor:default; color: var(--ink-soft); border-bottom: none;">
+              <strong style="font-weight:400;">Var lagras uppgifterna?</strong><br>
+              <span style="color: var(--ink-muted); font-size: 12px;">Inom EU. Dina uppgifter lämnar aldrig Europa.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -599,16 +848,20 @@ hålla koll på om något ändras i din kalender"
   const userNameInput = document.getElementById("userName");
   const agentNameInput = document.getElementById("agentName");
 
-  const greetingEl = document.getElementById("greeting");
-  const signatureEl = document.getElementById("signature");
+  const chatHeaderName = document.getElementById("chatHeaderName");
+  const welcomeMsg = document.getElementById("welcomeMsg");
 
   const messageInput = document.getElementById("messageInput");
   const sendBtn = document.getElementById("sendBtn");
-  const log = document.getElementById("log");
-  const loginLink = document.getElementById("loginLink");
-  const authLabel = document.getElementById("authLabel");
+  const chatMessages = document.getElementById("chatMessages");
   const statusDot = document.getElementById("statusDot");
-  const nextMeetingEl = document.getElementById("nextMeeting");
+  const authLabel = document.getElementById("authLabel");
+
+  const menuBtn = document.getElementById("menuBtn");
+  const aboutPanel = document.getElementById("aboutPanel");
+  const aboutBack = document.getElementById("aboutBack");
+  const aboutCalendarMs = document.getElementById("aboutCalendarMs");
+  const aboutCalendarGoogle = document.getElementById("aboutCalendarGoogle");
 
   let OWNER_NAME = "Du";
   let AGENT_NAME = "Shilpi";
@@ -645,13 +898,17 @@ hålla koll på om något ändras i din kalender"
   }
 
   function enterMainView() {
-    greetingEl.textContent = OWNER_NAME !== "Du" ? "Hej " + OWNER_NAME + "," : "Hej,";
-    signatureEl.textContent = "/ " + AGENT_NAME;
+    const greeting = OWNER_NAME !== "Du"
+      ? "Hej " + OWNER_NAME + "! Vad kan jag hjälpa dig med?"
+      : "Hej! Vad kan jag hjälpa dig med?";
+    welcomeMsg.textContent = greeting;
+    chatHeaderName.textContent = AGENT_NAME;
     onboarding.classList.add("hidden");
     mainView.classList.remove("hidden");
+    scrollToBottom();
   }
 
-  // --- Onboarding ---
+  // --- Onboarding calendar links ---
 
   calendarLink.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -689,45 +946,63 @@ hålla koll på om något ändras i din kalender"
     requestNotificationPermission();
   });
 
+  // --- About panel ---
+
+  menuBtn.addEventListener("click", () => {
+    aboutPanel.classList.add("open");
+  });
+
+  aboutBack.addEventListener("click", () => {
+    aboutPanel.classList.remove("open");
+  });
+
+  aboutCalendarMs.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/auth/login");
+      const data = await res.json();
+      if (data.login_url) {
+        document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";
+        window.location.href = data.login_url;
+      }
+    } catch (_) {}
+  });
+
+  aboutCalendarGoogle.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/auth/google/login");
+      const data = await res.json();
+      if (data.login_url) {
+        document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";
+        window.location.href = data.login_url;
+      }
+    } catch (_) {}
+  });
+
   // --- Chat ---
 
-  function appendBlock(name, text, className) {
-    const wrapper = document.createElement("div");
-    wrapper.className = className;
+  function scrollToBottom() {
+    requestAnimationFrame(() => {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+  }
 
-    if (name) {
-      const nameDiv = document.createElement("div");
-      nameDiv.className = "name";
-      nameDiv.textContent = name;
-      wrapper.appendChild(nameDiv);
-    }
-
-    const textDiv = document.createElement("div");
-    textDiv.className = "entry";
-    textDiv.textContent = text;
-    wrapper.appendChild(textDiv);
-
-    log.appendChild(wrapper);
-    log.scrollTop = log.scrollHeight;
+  function addMessage(text, type) {
+    const msg = document.createElement("div");
+    msg.className = "msg " + type;
+    msg.textContent = text;
+    chatMessages.appendChild(msg);
+    scrollToBottom();
   }
 
   function showTyping() {
-    const wrapper = document.createElement("div");
-    wrapper.className = "log-typing";
-    wrapper.id = "typingIndicator";
-
-    const nameDiv = document.createElement("div");
-    nameDiv.className = "name";
-    nameDiv.textContent = AGENT_NAME;
-    wrapper.appendChild(nameDiv);
-
-    const dots = document.createElement("div");
-    dots.className = "typing-dots";
-    dots.innerHTML = "<span>.</span><span>.</span><span>.</span>";
-    wrapper.appendChild(dots);
-
-    log.appendChild(wrapper);
-    log.scrollTop = log.scrollHeight;
+    const msg = document.createElement("div");
+    msg.className = "msg msg-typing";
+    msg.id = "typingIndicator";
+    msg.innerHTML = '<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>';
+    chatMessages.appendChild(msg);
+    scrollToBottom();
   }
 
   function hideTyping() {
@@ -735,12 +1010,19 @@ hålla koll på om något ändras i din kalender"
     if (el) el.remove();
   }
 
+  // Auto-resize textarea
+  messageInput.addEventListener("input", () => {
+    messageInput.style.height = "auto";
+    messageInput.style.height = Math.min(messageInput.scrollHeight, 100) + "px";
+  });
+
   async function sendMessage() {
     const text = messageInput.value.trim();
     if (!text) return;
 
-    appendBlock(OWNER_NAME, text, "log-owner");
+    addMessage(text, "msg-user");
     messageInput.value = "";
+    messageInput.style.height = "auto";
 
     showTyping();
 
@@ -760,7 +1042,7 @@ hålla koll på om något ändras i din kalender"
       }
 
       if (data && data.reply) {
-        appendBlock(AGENT_NAME, data.reply, "log-agent");
+        addMessage(data.reply, "msg-agent");
       }
     } catch (_) {
       hideTyping();
@@ -839,25 +1121,13 @@ hålla koll på om något ändras i din kalender"
       const events = await res.json();
       if (events.length) {
         const text = events.join("\n");
-        appendBlock(null, text, "log-events");
+        addMessage(text, "msg-event");
         notify(text);
       }
     } catch (_) {}
   }
 
   // --- Auth ---
-
-  loginLink.addEventListener("click", async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/auth/login");
-      const data = await res.json();
-      if (data.login_url) {
-        document.cookie = "shilpi_user_id=" + data.user_id + ";path=/;max-age=2592000";
-        window.location.href = data.login_url;
-      }
-    } catch (_) {}
-  });
 
   async function checkAuthStatus() {
     try {
@@ -866,19 +1136,10 @@ hålla koll på om något ändras i din kalender"
 
       if (data.connected) {
         statusDot.classList.add("connected");
-        authLabel.textContent = "Kalender: ansluten";
-        loginLink.style.display = "none";
-
-        if (data.next_meeting) {
-          nextMeetingEl.textContent = data.next_meeting;
-        } else {
-          nextMeetingEl.textContent = "";
-        }
+        authLabel.textContent = "Kalender ansluten";
       } else {
         statusDot.classList.remove("connected");
         authLabel.textContent = "Kalender: ej ansluten";
-        loginLink.style.display = "inline";
-        nextMeetingEl.textContent = "";
       }
     } catch (_) {}
   }
